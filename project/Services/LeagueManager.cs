@@ -4,6 +4,9 @@ using System.Linq;
 
 namespace FootballLeague
 {
+    /// <summary>
+    /// Основной менеджер футбольной лиги
+    /// </summary>
     public class LeagueManager
     {
         public List<Team> Teams { get; set; } = new List<Team>();
@@ -11,9 +14,19 @@ namespace FootballLeague
         public List<TeamRoundStats> RoundHistory { get; set; } = new List<TeamRoundStats>();
         private int lastRecordedRound = 0;
 
+        /// <summary>
+        /// Обрабатывает результат матча и обновляет статистику команд
+        /// </summary>
+        /// <param name="match">Матч для обработки</param>
         public void ProcessMatchResult(Match match)
         {
-            if (!match.IsPlayed) return;
+            if (!match.IsPlayed) 
+            {
+                Console.WriteLine($"Матч {match.Id} еще не сыгран");
+                return;
+            }
+
+            Console.WriteLine($"Обработка матча: {match.HomeTeam.Name} {match.HomeGoals}:{match.AwayGoals} {match.AwayTeam.Name}");
 
             match.HomeTeam.Played++;
             match.AwayTeam.Played++;
@@ -28,16 +41,19 @@ namespace FootballLeague
             {
                 match.HomeTeam.Wins++;
                 match.AwayTeam.Losses++;
+                Console.WriteLine($"Победа хозяев: {match.HomeTeam.Name}");
             }
             else if (match.HomeGoals < match.AwayGoals)
             {
                 match.AwayTeam.Wins++;
                 match.HomeTeam.Losses++;
+                Console.WriteLine($"Победа гостей: {match.AwayTeam.Name}");
             }
             else
             {
                 match.HomeTeam.Draws++;
                 match.AwayTeam.Draws++;
+                Console.WriteLine("Ничья");
             }
 
             if (match.Round != lastRecordedRound)
