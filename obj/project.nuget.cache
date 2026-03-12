@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "hu7Ca6a1bcY=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Администратор\\Downloads\\cursovaya\\FootballLeague.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Администратор\\.nuget\\packages\\oxyplot.core\\2.1.2\\oxyplot.core.2.1.2.nupkg.sha512",
+    "C:\\Users\\Администратор\\.nuget\\packages\\oxyplot.wpf\\2.1.2\\oxyplot.wpf.2.1.2.nupkg.sha512",
+    "C:\\Users\\Администратор\\.nuget\\packages\\oxyplot.wpf.shared\\2.1.2\\oxyplot.wpf.shared.2.1.2.nupkg.sha512"
+  ],
+  "logs": []
+}
