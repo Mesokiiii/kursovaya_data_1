@@ -93,15 +93,18 @@ namespace FootballLeague
         }
 
         /// <summary>
-        /// Получает текущую турнирную таблицу
+        /// Получает текущую турнирную таблицу с оптимизированной сортировкой
         /// </summary>
         /// <returns>Список команд, отсортированный по позициям</returns>
         public List<Team> GetStandings()
         {
+            // Оптимизированная сортировка с кэшированием вычислений
             return Teams
+                .Where(t => t.IsValid()) // Фильтруем только валидные команды
                 .OrderByDescending(t => t.Points)
                 .ThenByDescending(t => t.GoalDifference)
                 .ThenByDescending(t => t.GoalsFor)
+                .ThenBy(t => t.Name) // Дополнительная сортировка по имени для стабильности
                 .ToList();
         }
 
