@@ -13,7 +13,24 @@ namespace FootballLeague
         /// <summary>
         /// Название команды
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Проверяет корректность данных команды
+        /// </summary>
+        /// <returns>True, если данные корректны</returns>
+        public bool IsValid()
+        {
+            return Id > 0 && 
+                   !string.IsNullOrWhiteSpace(Name) &&
+                   Played >= 0 &&
+                   Wins >= 0 &&
+                   Draws >= 0 &&
+                   Losses >= 0 &&
+                   GoalsFor >= 0 &&
+                   GoalsAgainst >= 0 &&
+                   (Wins + Draws + Losses) == Played;
+        }
         
         /// <summary>
         /// Количество сыгранных матчей
