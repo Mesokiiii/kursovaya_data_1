@@ -63,22 +63,39 @@ namespace FootballLeague
             }
         }
 
+        /// <summary>
+        /// Записывает статистику команд на конец тура
+        /// </summary>
+        /// <param name="round">Номер тура</param>
         private void RecordRoundStats(int round)
         {
-            var standings = GetStandings();
-            for (int i = 0; i < standings.Count; i++)
+            try
             {
-                RoundHistory.Add(new TeamRoundStats
+                Console.WriteLine($"Запись статистики для тура {round}");
+                var standings = GetStandings();
+                for (int i = 0; i < standings.Count; i++)
                 {
-                    TeamId = standings[i].Id,
-                    TeamName = standings[i].Name,
-                    Round = round,
-                    Points = standings[i].Points,
-                    Position = i + 1
-                });
+                    RoundHistory.Add(new TeamRoundStats
+                    {
+                        TeamId = standings[i].Id,
+                        TeamName = standings[i].Name,
+                        Round = round,
+                        Points = standings[i].Points,
+                        Position = i + 1
+                    });
+                }
+                Console.WriteLine($"Статистика для {standings.Count} команд записана");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при записи статистики тура {round}: {ex.Message}");
             }
         }
 
+        /// <summary>
+        /// Получает текущую турнирную таблицу
+        /// </summary>
+        /// <returns>Список команд, отсортированный по позициям</returns>
         public List<Team> GetStandings()
         {
             return Teams
@@ -88,19 +105,41 @@ namespace FootballLeague
                 .ToList();
         }
 
+        /// <summary>
+        /// Получает матчи между двумя командами
+        /// </summary>
+        /// <param name="team1">Первая команда</param>
+        /// <param name="team2">Вторая команда</param>
+        /// <returns>Список матчей между командами</returns>
         public List<Match> GetHeadToHead(Team team1, Team team2)
         {
+            if (team1 == null || team2 == null)
+                return new List<Match>();
+
             return Matches.Where(m =>
                 (m.HomeTeam == team1 && m.AwayTeam == team2) ||
                 (m.HomeTeam == team2 && m.AwayTeam == team1)
             ).ToList();
         }
 
+        /// <summary>
+        /// Поиск команд по условию
+        /// </summary>
+        /// <param name="predicate">Условие поиска</param>
+        /// <returns>Список найденных команд</returns>
         public List<Team> SearchTeams(Func<Team, bool> predicate)
         {
+            if (predicate == null)
+                return new List<Team>();
+
             return Teams.Where(predicate).ToList();
         }
 
+        /// <summary>
+        /// Получает историю команды по турам
+        /// </summary>
+        /// <param name="teamId">Идентификатор команды</param>
+        /// <returns>История статистики команды</returns>
         public List<TeamRoundStats> GetTeamHistory(int teamId)
         {
             return RoundHistory.Where(r => r.TeamId == teamId).OrderBy(r => r.Round).ToList();
