@@ -53,6 +53,6 @@ namespace FootballLeague
         /// <summary>
         /// Очки команды (3 за победу, 1 за ничью)
         /// </summary>
-        public int Points => (Wins * 3) + (Draws * 1);
+        public int Points => (Wins * Constants.POINTS_FOR_WIN) + (Draws * Constants.POINTS_FOR_DRAW);
     }
 }
