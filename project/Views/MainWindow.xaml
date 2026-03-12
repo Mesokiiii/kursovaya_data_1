@@ -1,19 +1,24 @@
+<!-- Главное окно приложения Футбольная Лига -->
 <Window x:Class="FootballLeague.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:oxy="http://oxyplot.org/wpf"
         Title="Футбольная Лига - Турнирная таблица" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen">
+    
+    <!-- Основная сетка с фоном -->
     <Grid Background="#F5F5F5">
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
+        <!-- Контейнер вкладок -->
         <TabControl Grid.Row="0">
             <!-- Вкладка 1: Турнирная таблица -->
             <TabItem Header="Турнирная таблица" Padding="10">
                 <Grid>
+                    <!-- Таблица с результатами команд -->
                     <DataGrid x:Name="StandingsGrid" AutoGenerateColumns="False" IsReadOnly="True" 
                               Margin="10" CanUserAddRows="False" CanUserDeleteRows="False">
                         <DataGrid.Columns>
