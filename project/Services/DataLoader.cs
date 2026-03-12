@@ -6,10 +6,28 @@ using System.Linq;
 
 namespace FootballLeague
 {
+    /// <summary>
+    /// Сервис для загрузки данных из JSON файла
+    /// </summary>
     public class DataLoader
     {
+        /// <summary>
+        /// Загружает данные команд и матчей из JSON файла
+        /// </summary>
+        /// <param name="manager">Менеджер лиги</param>
+        /// <param name="filePath">Путь к JSON файлу</param>
         public static void LoadFromJson(LeagueManager manager, string filePath)
         {
+            // Валидация входных параметров
+            if (manager == null)
+                throw new ArgumentNullException(nameof(manager), "Менеджер лиги не может быть null");
+            
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("Путь к файлу не может быть пустым", nameof(filePath));
+            
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException($"Файл не найден: {filePath}");
+
             try
             {
                 string json = File.ReadAllText(filePath);
