@@ -9,7 +9,7 @@ namespace FootballLeague
     /// </summary>
     public class ScoreConverter : IValueConverter
     {
-        public object Convert(object value, object targetType, object parameter, CultureInfo culture)
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is Match match)
             {
@@ -21,7 +21,7 @@ namespace FootballLeague
             return "N/A";
         }
 
-        public object ConvertBack(object value, object targetType, object parameter, CultureInfo culture)
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }
@@ -32,7 +32,7 @@ namespace FootballLeague
     /// </summary>
     public class PositionConverter : IValueConverter
     {
-        public object Convert(object value, object targetType, object parameter, CultureInfo culture)
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is int position)
             {
@@ -41,7 +41,7 @@ namespace FootballLeague
             return "N/A";
         }
 
-        public object ConvertBack(object value, object targetType, object parameter, CultureInfo culture)
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }
@@ -52,7 +52,7 @@ namespace FootballLeague
     /// </summary>
     public class GoalDifferenceConverter : IValueConverter
     {
-        public object Convert(object value, object targetType, object parameter, CultureInfo culture)
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is int difference)
             {
@@ -64,7 +64,7 @@ namespace FootballLeague
             return "0";
         }
 
-        public object ConvertBack(object value, object targetType, object parameter, CultureInfo culture)
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }

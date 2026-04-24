@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace FootballLeague
 {
@@ -10,7 +9,7 @@ namespace FootballLeague
     public static class Extensions
     {
         /// <summary>
-        /// Получает форму команды (последние N матчей)
+        /// Получает форму команды (последние N матчей) - без LINQ
         /// </summary>
         /// <param name="team">Команда</param>
         /// <param name="matches">Все матчи</param>
@@ -18,14 +17,20 @@ namespace FootballLeague
         /// <returns>Строка с результатами (W-победа, D-ничья, L-поражение)</returns>
         public static string GetForm(this Team team, List<Match> matches, int count = 5)
         {
-            var teamMatches = matches
-                .Where(m => m.IsPlayed && (m.HomeTeam.Id == team.Id || m.AwayTeam.Id == team.Id))
-                .OrderByDescending(m => m.Round)
-                .Take(count);
+            // Фильтруем матчи команды
+            List<Match> teamMatches = ManualAlgorithms.Where(matches, 
+                m => m.IsPlayed && (m.HomeTeam.Id == team.Id || m.AwayTeam.Id == team.Id));
+            
+            // Сортируем по убыванию тура
+            teamMatches = ManualAlgorithms.OrderByDescending(teamMatches, m => m.Round);
+            
+            // Берем первые count матчей
+            teamMatches = ManualAlgorithms.Take(teamMatches, count);
 
-            var form = "";
-            foreach (var match in teamMatches)
+            string form = "";
+            for (int i = 0; i < teamMatches.Count; i++)
             {
+                Match match = teamMatches[i];
                 if (match.HomeTeam.Id == team.Id)
                 {
                     if (match.HomeGoals > match.AwayGoals) form += "W";
@@ -44,15 +49,23 @@ namespace FootballLeague
         }
 
         /// <summary>
-        /// Проверяет, является ли команда в хорошей форме
+        /// Проверяет, является ли команда в хорошей форме (без LINQ)
         /// </summary>
         /// <param name="team">Команда</param>
         /// <param name="matches">Все матчи</param>
         /// <returns>True, если команда в хорошей форме</returns>
         public static bool IsInGoodForm(this Team team, List<Match> matches)
         {
-            var form = team.GetForm(matches, 3);
-            var wins = form.Count(c => c == 'W');
+            string form = team.GetForm(matches, 3);
+            
+            // Подсчитываем победы вручную
+            int wins = 0;
+            for (int i = 0; i < form.Length; i++)
+            {
+                if (form[i] == 'W')
+                    wins++;
+            }
+            
             return wins >= 2;
         }
 

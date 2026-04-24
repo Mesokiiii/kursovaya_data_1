@@ -1,0 +1,97 @@
+<UserControl x:Class="FootballLeague.Views.Components.HeadToHeadView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary Source="../Resources/SharedResources.xaml"/>
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Border Grid.Row="0" Style="{StaticResource InfoBannerStyle}">
+            <StackPanel>
+                <TextBlock Text="⚔️ Личные встречи команд" 
+                           FontSize="16" 
+                           FontWeight="Bold" 
+                           Foreground="{StaticResource TextPrimary}"
+                           Margin="0,0,0,5"/>
+                <TextBlock Text="Выберите две команды для просмотра истории их матчей между собой" 
+                           TextWrapping="Wrap" 
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="12"/>
+            </StackPanel>
+        </Border>
+        
+        <TextBlock Grid.Row="1" Text="Выберите две команды:" FontSize="14" FontWeight="SemiBold" 
+                   Foreground="{StaticResource TextPrimary}" Margin="10,10,0,10"/>
+        
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10,0,0,10">
+            <TextBlock Text="Команда 1:" VerticalAlignment="Center" Margin="0,0,10,0" 
+                       Foreground="{StaticResource TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedTeam1}" 
+                      DisplayMemberPath="Name" Width="200" Margin="0,0,20,0"/>
+            <TextBlock Text="Команда 2:" VerticalAlignment="Center" Margin="0,0,10,0"
+                       Foreground="{StaticResource TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedTeam2}" 
+                      DisplayMemberPath="Name" Width="200" Margin="0,0,20,0"/>
+            <Button Content="Поиск" Width="100" Command="{Binding SearchHeadToHeadCommand}" 
+                    Style="{StaticResource ModernButtonStyle}"/>
+        </StackPanel>
+        
+        <DataGrid Grid.Row="3" 
+                  ItemsSource="{Binding HeadToHeadMatches}" 
+                  AutoGenerateColumns="False" 
+                  IsReadOnly="True" 
+                  Margin="10,10,10,10" 
+                  CanUserAddRows="False" 
+                  CanUserDeleteRows="False"
+                  Style="{StaticResource ModernDataGridStyle}"
+                  ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}"
+                  CellStyle="{StaticResource DataGridCellStyle}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Тур" Binding="{Binding Round}" Width="80">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Дома" Binding="{Binding HomeTeam.Name}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Padding" Value="10,5"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Счет" Binding="{Binding ., Converter={StaticResource ScoreConverter}}" Width="120">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="14"/>
+                            <Setter Property="Foreground" Value="{StaticResource AccentColor}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="В гостях" Binding="{Binding AwayTeam.Name}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Padding" Value="10,5"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

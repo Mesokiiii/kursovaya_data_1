@@ -4,7 +4,6 @@
              xmlns:local="clr-namespace:FootballLeague"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <local:PlaceConverter x:Key="PlaceConverter"/>
         <local:ScoreConverter x:Key="ScoreConverter"/>
     </Application.Resources>
 </Application>

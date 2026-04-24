@@ -1,0 +1,83 @@
+<UserControl x:Class="FootballLeague.Views.Components.HistoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary Source="../Resources/SharedResources.xaml"/>
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Border Grid.Row="0" Style="{StaticResource InfoBannerStyle}">
+            <StackPanel>
+                <TextBlock Text="📜 История изменения позиций" 
+                           FontSize="16" 
+                           FontWeight="Bold" 
+                           Foreground="{StaticResource TextPrimary}"
+                           Margin="0,0,0,5"/>
+                <TextBlock Text="Просмотрите, как менялась позиция и количество очков выбранной команды от тура к туру" 
+                           TextWrapping="Wrap" 
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="12"/>
+            </StackPanel>
+        </Border>
+        
+        <TextBlock Grid.Row="1" Text="Выберите команду для просмотра истории:" FontSize="14" FontWeight="SemiBold" 
+                   Foreground="{StaticResource TextPrimary}" Margin="10,10,0,10"/>
+        
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10,0,0,10">
+            <ComboBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedHistoryTeam}" 
+                      DisplayMemberPath="Name" Width="250" Margin="0,0,20,0" Padding="5"/>
+            <Button Content="Показать" Width="120" Command="{Binding ShowHistoryCommand}"
+                    Style="{StaticResource ModernButtonStyle}"/>
+        </StackPanel>
+        
+        <DataGrid Grid.Row="3" 
+                  ItemsSource="{Binding TeamHistory}" 
+                  AutoGenerateColumns="False" 
+                  IsReadOnly="True" 
+                  Margin="10,0,10,10" 
+                  CanUserAddRows="False" 
+                  CanUserDeleteRows="False"
+                  Style="{StaticResource ModernDataGridStyle}"
+                  ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}"
+                  CellStyle="{StaticResource DataGridCellStyle}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="№ Тура" Binding="{Binding Round}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="14"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Место в таблице" Binding="{Binding Position}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontSize" Value="16"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Foreground" Value="{StaticResource AccentColor}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Очки" Binding="{Binding Points}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontSize" Value="16"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Foreground" Value="{StaticResource PrimaryColor}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

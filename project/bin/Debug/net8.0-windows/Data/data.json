@@ -1,0 +1,130 @@
+{
+  "teams": [
+    {
+      "id": 1,
+      "name": "Спартак"
+    },
+    {
+      "id": 2,
+      "name": "ЦСКА"
+    },
+    {
+      "id": 3,
+      "name": "Локомотив"
+    },
+    {
+      "id": 4,
+      "name": "Динамо"
+    }
+  ],
+  "matches": [
+    {
+      "id": 1,
+      "round": 1,
+      "homeTeamId": 1,
+      "awayTeamId": 4,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 2,
+      "round": 1,
+      "homeTeamId": 2,
+      "awayTeamId": 3,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 3,
+      "round": 2,
+      "homeTeamId": 4,
+      "awayTeamId": 2,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 4,
+      "round": 2,
+      "homeTeamId": 1,
+      "awayTeamId": 3,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 5,
+      "round": 3,
+      "homeTeamId": 3,
+      "awayTeamId": 4,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 6,
+      "round": 3,
+      "homeTeamId": 1,
+      "awayTeamId": 2,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 7,
+      "round": 4,
+      "homeTeamId": 4,
+      "awayTeamId": 1,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 8,
+      "round": 4,
+      "homeTeamId": 3,
+      "awayTeamId": 2,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 9,
+      "round": 5,
+      "homeTeamId": 2,
+      "awayTeamId": 4,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 10,
+      "round": 5,
+      "homeTeamId": 3,
+      "awayTeamId": 1,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 11,
+      "round": 6,
+      "homeTeamId": 4,
+      "awayTeamId": 3,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    },
+    {
+      "id": 12,
+      "round": 6,
+      "homeTeamId": 2,
+      "awayTeamId": 1,
+      "homeGoals": 0,
+      "awayGoals": 0,
+      "isPlayed": false
+    }
+  ]
+}

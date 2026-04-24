@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using OxyPlot;
 using OxyPlot.Series;
 using OxyPlot.Axes;
@@ -19,7 +18,7 @@ namespace FootballLeague
         /// <returns>Модель графика</returns>
         public static PlotModel CreatePointsChart(List<TeamRoundStats> history, string teamName)
         {
-            if (history == null || !history.Any())
+            if (history == null || !ManualAlgorithms.Any(history))
                 return new PlotModel { Title = "Нет данных для отображения" };
 
             var model = new PlotModel 
@@ -62,9 +61,10 @@ namespace FootballLeague
             };
 
             // Добавление точек данных
-            foreach (var stat in history.OrderBy(s => s.Round))
+            List<TeamRoundStats> sortedHistory = ManualAlgorithms.OrderBy(history, s => s.Round);
+            for (int i = 0; i < sortedHistory.Count; i++)
             {
-                series.Points.Add(new DataPoint(stat.Round, stat.Points));
+                series.Points.Add(new DataPoint(sortedHistory[i].Round, sortedHistory[i].Points));
             }
 
             model.Series.Add(series);
@@ -101,6 +101,7 @@ namespace FootballLeague
             var colors = new[] { OxyColors.Blue, OxyColors.Red, OxyColors.Green, OxyColors.Orange, OxyColors.Purple };
             int colorIndex = 0;
 
+            // Ручная итерация по словарю
             foreach (var teamHistory in histories)
             {
                 var series = new LineSeries
@@ -112,9 +113,10 @@ namespace FootballLeague
                     MarkerSize = 3
                 };
 
-                foreach (var stat in teamHistory.Value.OrderBy(s => s.Round))
+                List<TeamRoundStats> sortedStats = ManualAlgorithms.OrderBy(teamHistory.Value, s => s.Round);
+                for (int i = 0; i < sortedStats.Count; i++)
                 {
-                    series.Points.Add(new DataPoint(stat.Round, stat.Position));
+                    series.Points.Add(new DataPoint(sortedStats[i].Round, sortedStats[i].Position));
                 }
 
                 model.Series.Add(series);

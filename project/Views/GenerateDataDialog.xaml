@@ -1,0 +1,51 @@
+<Window x:Class="FootballLeague.GenerateDataDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Генерация данных" Height="300" Width="450"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <TextBlock Grid.Row="0" Text="Настройки генерации данных" FontSize="16" FontWeight="Bold" Margin="0,0,0,20"/>
+        
+        <StackPanel Grid.Row="1" Margin="0,0,0,15">
+            <TextBlock Text="Количество команд:" Margin="0,0,0,5"/>
+            <ComboBox x:Name="TeamCountComboBox" SelectedIndex="0">
+                <ComboBoxItem Content="4 команды (минимум)" Tag="4"/>
+                <ComboBoxItem Content="10 команд" Tag="10"/>
+                <ComboBoxItem Content="20 команд (стандарт)" Tag="20"/>
+            </ComboBox>
+        </StackPanel>
+        
+        <StackPanel Grid.Row="2" Margin="0,0,0,15">
+            <TextBlock Text="Симулировать туры:" Margin="0,0,0,5"/>
+            <ComboBox x:Name="SimulateRoundsComboBox" SelectedIndex="0">
+                <ComboBoxItem Content="Не симулировать (пустое расписание)" Tag="0"/>
+                <ComboBoxItem Content="5 туров" Tag="5"/>
+                <ComboBoxItem Content="10 туров" Tag="10"/>
+                <ComboBoxItem Content="19 туров (первый круг)" Tag="19"/>
+                <ComboBoxItem Content="30 туров" Tag="30"/>
+                <ComboBoxItem Content="38 туров (полный сезон)" Tag="38"/>
+            </ComboBox>
+        </StackPanel>
+        
+        <TextBlock Grid.Row="3" TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,0,0,10">
+            Примечание: Для 20 команд будет создано 380 матчей (каждая команда играет с каждой дома и в гостях). 
+            Симуляция заполнит результаты случайными счетами.
+        </TextBlock>
+        
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="OkButton" Content="Генерировать" Width="120" Height="30" Margin="0,0,10,0" 
+                    Click="OkButton_Click" IsDefault="True"/>
+            <Button x:Name="CancelButton" Content="Отмена" Width="100" Height="30" 
+                    Click="CancelButton_Click" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

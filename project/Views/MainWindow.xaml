@@ -1,172 +1,105 @@
-<!-- Главное окно приложения Футбольная Лига -->
 <Window x:Class="FootballLeague.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:oxy="http://oxyplot.org/wpf"
+        xmlns:vm="clr-namespace:FootballLeague.ViewModels"
+        xmlns:views="clr-namespace:FootballLeague.Views.Components"
         Title="Футбольная Лига - Турнирная таблица" Height="700" Width="1100"
         WindowStartupLocation="CenterScreen">
     
-    <!-- Основная сетка с фоном -->
-    <Grid Background="#F5F5F5">
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+    
+    <Window.Resources>
+        <ResourceDictionary Source="Resources/SharedResources.xaml"/>
+    </Window.Resources>
+    
+    <Grid Background="{StaticResource BackgroundColor}">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
+        <!-- Меню -->
+        <Menu Grid.Row="0" Background="{StaticResource PrimaryColor}" Foreground="White">
+            <Menu.Resources>
+                <Style TargetType="MenuItem">
+                    <Setter Property="Foreground" Value="White"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter Property="Background" Value="{StaticResource SecondaryColor}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Menu.Resources>
+            <MenuItem Header="Файл">
+                <MenuItem Header="Генерировать данные..." Command="{Binding GenerateDataCommand}"/>
+                <Separator/>
+                <MenuItem Header="Выход" Command="{Binding ExitCommand}"/>
+            </MenuItem>
+            <MenuItem Header="Справка">
+                <MenuItem Header="О программе" Command="{Binding AboutCommand}"/>
+            </MenuItem>
+        </Menu>
+        
         <!-- Контейнер вкладок -->
-        <TabControl Grid.Row="0">
-            <!-- Вкладка 1: Турнирная таблица -->
+        <TabControl Grid.Row="1" Background="{StaticResource BackgroundColor}">
+            <TabControl.Resources>
+                <Style TargetType="TabItem">
+                    <Setter Property="FontSize" Value="13"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource PrimaryColor}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </TabControl.Resources>
+            
             <TabItem Header="Турнирная таблица" Padding="10">
-                <Grid>
-                    <!-- Таблица с результатами команд -->
-                    <DataGrid x:Name="StandingsGrid" AutoGenerateColumns="False" IsReadOnly="True" 
-                              Margin="10" CanUserAddRows="False" CanUserDeleteRows="False">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Команда" Binding="{Binding Name}" Width="200" FontWeight="Bold"/>
-                            <DataGridTextColumn Header="И" Binding="{Binding Played}" Width="40"/>
-                            <DataGridTextColumn Header="В" Binding="{Binding Wins}" Width="40"/>
-                            <DataGridTextColumn Header="Н" Binding="{Binding Draws}" Width="40"/>
-                            <DataGridTextColumn Header="П" Binding="{Binding Losses}" Width="40"/>
-                            <DataGridTextColumn Header="ЗМ" Binding="{Binding GoalsFor}" Width="50"/>
-                            <DataGridTextColumn Header="ПМ" Binding="{Binding GoalsAgainst}" Width="50"/>
-                            <DataGridTextColumn Header="РМ" Binding="{Binding GoalDifference}" Width="50"/>
-                            <DataGridTextColumn Header="Очки" Binding="{Binding Points}" Width="60" FontWeight="Bold"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
+                <views:StandingsView DataContext="{Binding}"/>
             </TabItem>
-
-            <!-- Вкладка 2: Личные встречи -->
+            
             <TabItem Header="Личные встречи" Padding="10">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Выберите две команды:" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Команда 1:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="Team1ComboBox" Width="200" Margin="0,0,20,0"/>
-                        <TextBlock Text="Команда 2:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="Team2ComboBox" Width="200" Margin="0,0,20,0"/>
-                        <Button x:Name="SearchHeadToHeadButton" Content="Поиск" Width="80" Click="SearchHeadToHeadButton_Click"/>
-                    </StackPanel>
-                    <DataGrid Grid.Row="2" x:Name="HeadToHeadGrid" AutoGenerateColumns="False" IsReadOnly="True" 
-                              Margin="0,10,0,0" CanUserAddRows="False" CanUserDeleteRows="False">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Тур" Binding="{Binding Round}" Width="50"/>
-                            <DataGridTextColumn Header="Дома" Binding="{Binding HomeTeam.Name}" Width="150"/>
-                            <DataGridTextColumn Header="Счет" Binding="{Binding ., Converter={StaticResource ScoreConverter}}" Width="80"/>
-                            <DataGridTextColumn Header="В гостях" Binding="{Binding AwayTeam.Name}" Width="150"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
+                <views:HeadToHeadView DataContext="{Binding}"/>
             </TabItem>
-
-            <!-- Вкладка 3: Поиск команд -->
+            
             <TabItem Header="Поиск команд" Padding="10">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Поиск по критериям:" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Минимум забитых мячей:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBox x:Name="MinGoalsTextBox" Width="80" Margin="0,0,20,0"/>
-                        <Button x:Name="SearchButton" Content="Поиск" Width="80" Click="SearchButton_Click"/>
-                    </StackPanel>
-                    <DataGrid Grid.Row="2" x:Name="SearchGrid" AutoGenerateColumns="False" IsReadOnly="True" 
-                              Margin="0,10,0,0" CanUserAddRows="False" CanUserDeleteRows="False">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Команда" Binding="{Binding Name}" Width="200"/>
-                            <DataGridTextColumn Header="Забитые" Binding="{Binding GoalsFor}" Width="80"/>
-                            <DataGridTextColumn Header="Пропущенные" Binding="{Binding GoalsAgainst}" Width="100"/>
-                            <DataGridTextColumn Header="Разница" Binding="{Binding GoalDifference}" Width="80"/>
-                            <DataGridTextColumn Header="Очки" Binding="{Binding Points}" Width="80"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
+                <views:TeamSearchView DataContext="{Binding}"/>
             </TabItem>
-
-            <!-- Вкладка 4: Прогноз -->
+            
             <TabItem Header="Прогноз" Padding="10">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Прогноз итоговой таблицы" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
-                    <TextBlock Grid.Row="1" Text="Примечание: Прогноз основан на текущих результатах" Margin="0,0,0,10" Foreground="Gray"/>
-                    <DataGrid Grid.Row="2" x:Name="PredictionGrid" AutoGenerateColumns="False" IsReadOnly="True" 
-                              Margin="0,10,0,0" CanUserAddRows="False" CanUserDeleteRows="False">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Команда" Binding="{Binding Name}" Width="200" FontWeight="Bold"/>
-                            <DataGridTextColumn Header="И" Binding="{Binding Played}" Width="40"/>
-                            <DataGridTextColumn Header="В" Binding="{Binding Wins}" Width="40"/>
-                            <DataGridTextColumn Header="Н" Binding="{Binding Draws}" Width="40"/>
-                            <DataGridTextColumn Header="П" Binding="{Binding Losses}" Width="40"/>
-                            <DataGridTextColumn Header="ЗМ" Binding="{Binding GoalsFor}" Width="50"/>
-                            <DataGridTextColumn Header="ПМ" Binding="{Binding GoalsAgainst}" Width="50"/>
-                            <DataGridTextColumn Header="РМ" Binding="{Binding GoalDifference}" Width="50"/>
-                            <DataGridTextColumn Header="Очки" Binding="{Binding Points}" Width="60" FontWeight="Bold"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
+                <views:PredictionView DataContext="{Binding}"/>
             </TabItem>
-
-            <!-- Вкладка 5: Графики -->
+            
             <TabItem Header="Графики" Padding="10">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="График изменения очков команды по турам" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Выберите команду:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="TeamGraphComboBox" Width="200" Margin="0,0,20,0"/>
-                        <Button x:Name="ShowGraphButton" Content="Показать график" Width="120" Click="ShowGraphButton_Click"/>
-                    </StackPanel>
-                    <oxy:PlotView Grid.Row="2" x:Name="PointsPlot" Margin="0,10,0,0"/>
-                </Grid>
+                <views:ChartsView DataContext="{Binding}"/>
             </TabItem>
-
-            <!-- Вкладка 6: История по турам -->
+            
             <TabItem Header="История по турам" Padding="10">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Изменение позиций команд по турам" FontSize="14" FontWeight="Bold" Margin="0,0,0,10"/>
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
-                        <TextBlock Text="Выберите команду:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <ComboBox x:Name="TeamHistoryComboBox" Width="200" Margin="0,0,20,0"/>
-                        <Button x:Name="ShowHistoryButton" Content="Показать" Width="80" Click="ShowHistoryButton_Click"/>
-                    </StackPanel>
-                    <DataGrid Grid.Row="2" x:Name="HistoryGrid" AutoGenerateColumns="False" IsReadOnly="True" 
-                              Margin="0,10,0,0" CanUserAddRows="False" CanUserDeleteRows="False">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Тур" Binding="{Binding Round}" Width="50"/>
-                            <DataGridTextColumn Header="Позиция" Binding="{Binding Position}" Width="80"/>
-                            <DataGridTextColumn Header="Очки" Binding="{Binding Points}" Width="80"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
+                <views:HistoryView DataContext="{Binding}"/>
             </TabItem>
         </TabControl>
         
         <!-- Индикатор загрузки -->
-        <Grid Grid.Row="1" x:Name="LoadingPanel" Background="#E0E0E0" Visibility="Collapsed" Height="40">
+        <Grid Grid.Row="2" Background="{StaticResource PrimaryColor}" Height="40">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
-                <ProgressBar x:Name="LoadingProgressBar" Width="200" Height="20" IsIndeterminate="True" Margin="0,0,10,0"/>
-                <TextBlock x:Name="LoadingText" Text="Загружаем данные..." VerticalAlignment="Center" FontSize="12"/>
+                <ProgressBar Width="200" Height="20" IsIndeterminate="True" Margin="0,0,10,0"
+                             Foreground="{StaticResource AccentColor}"/>
+                <TextBlock Text="{Binding LoadingText}" VerticalAlignment="Center" 
+                           FontSize="12" Foreground="White" FontWeight="SemiBold"/>
             </StackPanel>
         </Grid>
     </Grid>

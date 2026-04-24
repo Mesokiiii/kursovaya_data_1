@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System.Linq;
 
 namespace FootballLeague
 {
@@ -59,8 +58,8 @@ namespace FootballLeague
                             int awayGoals = matchElement.GetProperty("awayGoals").GetInt32();
                             bool isPlayed = matchElement.GetProperty("isPlayed").GetBoolean();
 
-                            Team homeTeam = manager.Teams.FirstOrDefault(t => t.Id == homeTeamId);
-                            Team awayTeam = manager.Teams.FirstOrDefault(t => t.Id == awayTeamId);
+                            Team homeTeam = ManualAlgorithms.FirstOrDefault(manager.Teams, t => t.Id == homeTeamId);
+                            Team awayTeam = ManualAlgorithms.FirstOrDefault(manager.Teams, t => t.Id == awayTeamId);
 
                             if (homeTeam != null && awayTeam != null)
                             {
@@ -75,12 +74,12 @@ namespace FootballLeague
                                     IsPlayed = isPlayed
                                 };
                                 manager.Matches.Add(match);
-                                if (isPlayed)
-                                {
-                                    manager.ProcessMatchResult(match);
-                                }
                             }
                         }
+                        
+                        // ИСПРАВЛЕНИЕ: Обрабатываем все матчи сразу после загрузки
+                        // Это гарантирует правильную запись статистики по турам
+                        manager.ProcessAllMatches();
                     }
                 }
             }
