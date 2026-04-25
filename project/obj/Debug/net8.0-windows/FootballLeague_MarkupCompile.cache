@@ -1,10 +1,10 @@
 ﻿FootballLeague
-
+1.0.0.0
 
 exe
 C#
 .cs
-C:\Users\1\Desktop\kursovaya_data_1\project\obj\Debug\net8.0-windows\
+C:\bgl\kursovaya_data_1\project\obj\Debug\net8.0-windows\
 FootballLeague
 none
 false
@@ -12,9 +12,9 @@ TRACE;DEBUG;NET;NET8_0;NETCOREAPP;WINDOWS;WINDOWS7_0;NET5_0_OR_GREATER;NET6_0_OR
 
 10-156039971
 
-28747774673
-201572719628
+30-1337108649
+20133211443
 Views\App.xaml;Views\Components\ChartsView.xaml;Views\Components\HeadToHeadView.xaml;Views\Components\HistoryView.xaml;Views\Components\PredictionView.xaml;Views\Components\StandingsView.xaml;Views\Components\TeamSearchView.xaml;Views\GenerateDataDialog.xaml;Views\MainWindow.xaml;Views\Resources\SharedResources.xaml;
 
-False
+True
 

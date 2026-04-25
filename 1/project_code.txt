@@ -1,0 +1,3931 @@
+=== Собрано файлов: 39 ===
+
+
+================================================================================
+ФАЙЛ: project\FootballLeague.csproj
+================================================================================
+
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>FootballLeague</RootNamespace>
+    <AssemblyName>FootballLeague</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OxyPlot.Wpf" Version="2.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Data\data.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
+
+
+
+================================================================================
+ФАЙЛ: project\Helpers\ChartHelper.cs
+================================================================================
+
+using System.Collections.Generic;
+using OxyPlot;
+using OxyPlot.Series;
+using OxyPlot.Axes;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Помощник для создания графиков статистики команд
+    /// </summary>
+    public class ChartHelper
+    {
+        /// <summary>
+        /// Создает график изменения очков команды по турам
+        /// </summary>
+        /// <param name="history">История статистики команды</param>
+        /// <param name="teamName">Название команды</param>
+        /// <returns>Модель графика</returns>
+        public static PlotModel CreatePointsChart(List<TeamRoundStats> history, string teamName)
+        {
+            if (history == null || !ManualAlgorithms.Any(history))
+                return new PlotModel { Title = "Нет данных для отображения" };
+
+            var model = new PlotModel 
+            { 
+                Title = $"Изменение очков: {teamName}",
+                Background = OxyColors.White
+            };
+
+            // Настройка осей
+            model.Axes.Add(new LinearAxis 
+            { 
+                Position = AxisPosition.Bottom, 
+                Title = "Тур",
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.Dot,
+                MajorGridlineColor = OxyColor.FromRgb(230, 230, 230),
+                MinorGridlineColor = OxyColor.FromRgb(245, 245, 245)
+            });
+            
+            model.Axes.Add(new LinearAxis 
+            { 
+                Position = AxisPosition.Left, 
+                Title = "Очки",
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.Dot,
+                MajorGridlineColor = OxyColor.FromRgb(230, 230, 230),
+                MinorGridlineColor = OxyColor.FromRgb(245, 245, 245)
+            });
+
+            // Создание серии данных
+            var series = new LineSeries
+            {
+                Title = teamName,
+                Color = OxyColors.Blue,
+                StrokeThickness = 2,
+                MarkerType = MarkerType.Circle,
+                MarkerSize = 4,
+                MarkerFill = OxyColors.Blue,
+                MarkerStroke = OxyColors.DarkBlue
+            };
+
+            // Добавление точек данных
+            List<TeamRoundStats> sortedHistory = ManualAlgorithms.OrderBy(history, s => s.Round);
+            for (int i = 0; i < sortedHistory.Count; i++)
+            {
+                series.Points.Add(new DataPoint(sortedHistory[i].Round, sortedHistory[i].Points));
+            }
+
+            model.Series.Add(series);
+            return model;
+        }
+
+        /// <summary>
+        /// Создает график сравнения позиций команд
+        /// </summary>
+        /// <param name="histories">Истории нескольких команд</param>
+        /// <returns>Модель графика</returns>
+        public static PlotModel CreatePositionChart(Dictionary<string, List<TeamRoundStats>> histories)
+        {
+            var model = new PlotModel 
+            { 
+                Title = "Изменение позиций в турнирной таблице",
+                Background = OxyColors.White
+            };
+
+            model.Axes.Add(new LinearAxis 
+            { 
+                Position = AxisPosition.Bottom, 
+                Title = "Тур"
+            });
+            
+            model.Axes.Add(new LinearAxis 
+            { 
+                Position = AxisPosition.Left, 
+                Title = "Позиция",
+                StartPosition = 1,
+                EndPosition = 0 // Инвертируем ось (1 место вверху)
+            });
+
+            var colors = new[] { OxyColors.Blue, OxyColors.Red, OxyColors.Green, OxyColors.Orange, OxyColors.Purple };
+            int colorIndex = 0;
+
+            // Ручная итерация по словарю
+            foreach (var teamHistory in histories)
+            {
+                var series = new LineSeries
+                {
+                    Title = teamHistory.Key,
+                    Color = colors[colorIndex % colors.Length],
+                    StrokeThickness = 2,
+                    MarkerType = MarkerType.Circle,
+                    MarkerSize = 3
+                };
+
+                List<TeamRoundStats> sortedStats = ManualAlgorithms.OrderBy(teamHistory.Value, s => s.Round);
+                for (int i = 0; i < sortedStats.Count; i++)
+                {
+                    series.Points.Add(new DataPoint(sortedStats[i].Round, sortedStats[i].Position));
+                }
+
+                model.Series.Add(series);
+                colorIndex++;
+            }
+
+            return model;
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Models\Enums.cs
+================================================================================
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Результат матча для команды
+    /// </summary>
+    public enum MatchResult
+    {
+        /// <summary>
+        /// Победа
+        /// </summary>
+        Win,
+        
+        /// <summary>
+        /// Ничья
+        /// </summary>
+        Draw,
+        
+        /// <summary>
+        /// Поражение
+        /// </summary>
+        Loss
+    }
+
+    /// <summary>
+    /// Статус матча
+    /// </summary>
+    public enum MatchStatus
+    {
+        /// <summary>
+        /// Запланирован
+        /// </summary>
+        Scheduled,
+        
+        /// <summary>
+        /// Идет
+        /// </summary>
+        InProgress,
+        
+        /// <summary>
+        /// Завершен
+        /// </summary>
+        Finished,
+        
+        /// <summary>
+        /// Отменен
+        /// </summary>
+        Cancelled
+    }
+
+    /// <summary>
+    /// Тип сортировки турнирной таблицы
+    /// </summary>
+    public enum SortType
+    {
+        /// <summary>
+        /// По очкам
+        /// </summary>
+        Points,
+        
+        /// <summary>
+        /// По разности голов
+        /// </summary>
+        GoalDifference,
+        
+        /// <summary>
+        /// По забитым голам
+        /// </summary>
+        GoalsFor,
+        
+        /// <summary>
+        /// По названию команды
+        /// </summary>
+        TeamName
+    }
+}
+
+
+================================================================================
+ФАЙЛ: project\Models\Match.cs
+================================================================================
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Модель матча между двумя командами
+    /// </summary>
+    public class Match
+    {
+        /// <summary>
+        /// Уникальный идентификатор матча
+        /// </summary>
+        public int Id { get; set; }
+        
+        /// <summary>
+        /// Номер тура
+        /// </summary>
+        public int Round { get; set; }
+        
+        /// <summary>
+        /// Команда хозяев поля
+        /// </summary>
+        public Team HomeTeam { get; set; }
+        
+        /// <summary>
+        /// Команда гостей
+        /// </summary>
+        public Team AwayTeam { get; set; }
+        
+        /// <summary>
+        /// Голы команды хозяев
+        /// </summary>
+        public int HomeGoals { get; set; }
+        
+        /// <summary>
+        /// Голы команды гостей
+        /// </summary>
+        public int AwayGoals { get; set; }
+        
+        /// <summary>
+        /// Флаг завершения матча
+        /// </summary>
+        public bool IsPlayed { get; set; }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Models\Team.cs
+================================================================================
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Модель команды футбольной лиги
+    /// </summary>
+    public class Team
+    {
+        /// <summary>
+        /// Уникальный идентификатор команды
+        /// </summary>
+        public int Id { get; set; }
+        
+        /// <summary>
+        /// Название команды
+        /// </summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Проверяет корректность данных команды
+        /// </summary>
+        /// <returns>True, если данные корректны</returns>
+        public bool IsValid()
+        {
+            return Id > 0 && 
+                   !string.IsNullOrWhiteSpace(Name) &&
+                   Played >= 0 &&
+                   Wins >= 0 &&
+                   Draws >= 0 &&
+                   Losses >= 0 &&
+                   GoalsFor >= 0 &&
+                   GoalsAgainst >= 0 &&
+                   (Wins + Draws + Losses) == Played;
+        }
+        
+        /// <summary>
+        /// Количество сыгранных матчей
+        /// </summary>
+        public int Played { get; set; }
+        
+        /// <summary>
+        /// Количество побед
+        /// </summary>
+        public int Wins { get; set; }
+        
+        /// <summary>
+        /// Количество ничьих
+        /// </summary>
+        public int Draws { get; set; }
+        
+        /// <summary>
+        /// Количество поражений
+        /// </summary>
+        public int Losses { get; set; }
+        
+        /// <summary>
+        /// Забитые голы
+        /// </summary>
+        public int GoalsFor { get; set; }
+        
+        /// <summary>
+        /// Пропущенные голы
+        /// </summary>
+        public int GoalsAgainst { get; set; }
+
+        /// <summary>
+        /// Разность забитых и пропущенных голов
+        /// </summary>
+        public int GoalDifference => GoalsFor - GoalsAgainst;
+        
+        /// <summary>
+        /// Очки команды (3 за победу, 1 за ничью)
+        /// </summary>
+        public int Points => (Wins * Constants.POINTS_FOR_WIN) + (Draws * Constants.POINTS_FOR_DRAW);
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Models\TeamRoundStats.cs
+================================================================================
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Статистика команды по турам для построения графиков
+    /// </summary>
+    public class TeamRoundStats
+    {
+        /// <summary>
+        /// Идентификатор команды
+        /// </summary>
+        public int TeamId { get; set; }
+        
+        /// <summary>
+        /// Название команды
+        /// </summary>
+        public string TeamName { get; set; }
+        
+        /// <summary>
+        /// Номер тура
+        /// </summary>
+        public int Round { get; set; }
+        
+        /// <summary>
+        /// Количество очков на момент тура
+        /// </summary>
+        public int Points { get; set; }
+        
+        /// <summary>
+        /// Позиция в турнирной таблице
+        /// </summary>
+        public int Position { get; set; }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Services\DataLoader.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Сервис для загрузки данных из JSON файла
+    /// </summary>
+    public class DataLoader
+    {
+        /// <summary>
+        /// Загружает данные команд и матчей из JSON файла
+        /// </summary>
+        /// <param name="manager">Менеджер лиги</param>
+        /// <param name="filePath">Путь к JSON файлу</param>
+        public static void LoadFromJson(LeagueManager manager, string filePath)
+        {
+            // Валидация входных параметров
+            if (manager == null)
+                throw new ArgumentNullException(nameof(manager), "Менеджер лиги не может быть null");
+            
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("Путь к файлу не может быть пустым", nameof(filePath));
+            
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException($"Файл не найден: {filePath}");
+
+            try
+            {
+                string json = File.ReadAllText(filePath);
+                using (JsonDocument doc = JsonDocument.Parse(json))
+                {
+                    JsonElement root = doc.RootElement;
+
+                    // Загружаем команды
+                    if (root.TryGetProperty("teams", out JsonElement teamsArray))
+                    {
+                        foreach (JsonElement teamElement in teamsArray.EnumerateArray())
+                        {
+                            int id = teamElement.GetProperty("id").GetInt32();
+                            string name = teamElement.GetProperty("name").GetString();
+                            manager.Teams.Add(new Team { Id = id, Name = name });
+                        }
+                    }
+
+                    // Загружаем матчи
+                    if (root.TryGetProperty("matches", out JsonElement matchesArray))
+                    {
+                        foreach (JsonElement matchElement in matchesArray.EnumerateArray())
+                        {
+                            int id = matchElement.GetProperty("id").GetInt32();
+                            int round = matchElement.GetProperty("round").GetInt32();
+                            int homeTeamId = matchElement.GetProperty("homeTeamId").GetInt32();
+                            int awayTeamId = matchElement.GetProperty("awayTeamId").GetInt32();
+                            int homeGoals = matchElement.GetProperty("homeGoals").GetInt32();
+                            int awayGoals = matchElement.GetProperty("awayGoals").GetInt32();
+                            bool isPlayed = matchElement.GetProperty("isPlayed").GetBoolean();
+
+                            Team homeTeam = ManualAlgorithms.FirstOrDefault(manager.Teams, t => t.Id == homeTeamId);
+                            Team awayTeam = ManualAlgorithms.FirstOrDefault(manager.Teams, t => t.Id == awayTeamId);
+
+                            if (homeTeam != null && awayTeam != null)
+                            {
+                                var match = new Match
+                                {
+                                    Id = id,
+                                    Round = round,
+                                    HomeTeam = homeTeam,
+                                    AwayTeam = awayTeam,
+                                    HomeGoals = homeGoals,
+                                    AwayGoals = awayGoals,
+                                    IsPlayed = isPlayed
+                                };
+                                manager.Matches.Add(match);
+                            }
+                        }
+                        
+                        // ИСПРАВЛЕНИЕ: Обрабатываем все матчи сразу после загрузки
+                        // Это гарантирует правильную запись статистики по турам
+                        manager.ProcessAllMatches();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Ошибка при загрузке данных из JSON: {ex.Message}");
+            }
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Services\LeagueManager.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Основной менеджер футбольной лиги
+    /// </summary>
+    public partial class LeagueManager
+    {
+        public List<Team> Teams { get; set; } = new List<Team>();
+        public List<Match> Matches { get; set; } = new List<Match>();
+        public List<TeamRoundStats> RoundHistory { get; set; } = new List<TeamRoundStats>();
+
+        /// <summary>
+        /// Получает текущую турнирную таблицу с оптимизированной сортировкой
+        /// </summary>
+        /// <returns>Список команд, отсортированный по позициям</returns>
+        public List<Team> GetStandings()
+        {
+            // Фильтруем только валидные команды
+            List<Team> validTeams = ManualAlgorithms.Where(Teams, t => t.IsValid());
+            
+            // Многоуровневая сортировка вручную
+            List<Comparison<Team>> comparisons = new List<Comparison<Team>>
+            {
+                // По очкам (убывание)
+                (a, b) => b.Points.CompareTo(a.Points),
+                // По разнице голов (убывание)
+                (a, b) => b.GoalDifference.CompareTo(a.GoalDifference),
+                // По забитым голам (убывание)
+                (a, b) => b.GoalsFor.CompareTo(a.GoalsFor),
+                // По имени (возрастание)
+                (a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal)
+            };
+            
+            return ManualAlgorithms.MultiSort(validTeams, comparisons);
+        }
+
+        /// <summary>
+        /// Получает историю команды по турам
+        /// </summary>
+        /// <param name="teamId">Идентификатор команды</param>
+        /// <returns>История статистики команды</returns>
+        public List<TeamRoundStats> GetTeamHistory(int teamId)
+        {
+            List<TeamRoundStats> filtered = ManualAlgorithms.Where(RoundHistory, r => r.TeamId == teamId);
+            return ManualAlgorithms.OrderBy(filtered, r => r.Round);
+        }
+
+        /// <summary>
+        /// Создает копию менеджера для прогнозирования результатов
+        /// </summary>
+        /// <returns>Копия менеджера с текущим состоянием</returns>
+        public LeagueManager CreatePredictionCopy()
+        {
+            var copy = new LeagueManager();
+            
+            // Копируем команды
+            var teamMapping = new Dictionary<int, Team>();
+            for (int i = 0; i < Teams.Count; i++)
+            {
+                var team = Teams[i];
+                var teamCopy = new Team
+                {
+                    Id = team.Id,
+                    Name = team.Name,
+                    Played = team.Played,
+                    Wins = team.Wins,
+                    Draws = team.Draws,
+                    Losses = team.Losses,
+                    GoalsFor = team.GoalsFor,
+                    GoalsAgainst = team.GoalsAgainst
+                };
+                copy.Teams.Add(teamCopy);
+                teamMapping[team.Id] = teamCopy;
+            }
+            
+            // Копируем матчи
+            for (int i = 0; i < Matches.Count; i++)
+            {
+                var match = Matches[i];
+                var matchCopy = new Match
+                {
+                    Id = match.Id,
+                    Round = match.Round,
+                    HomeTeam = teamMapping[match.HomeTeam.Id],
+                    AwayTeam = teamMapping[match.AwayTeam.Id],
+                    HomeGoals = match.HomeGoals,
+                    AwayGoals = match.AwayGoals,
+                    IsPlayed = match.IsPlayed
+                };
+                copy.Matches.Add(matchCopy);
+            }
+            
+            // Копируем историю туров
+            for (int i = 0; i < RoundHistory.Count; i++)
+            {
+                var stat = RoundHistory[i];
+                copy.RoundHistory.Add(new TeamRoundStats
+                {
+                    TeamId = stat.TeamId,
+                    TeamName = stat.TeamName,
+                    Round = stat.Round,
+                    Points = stat.Points,
+                    Position = stat.Position
+                });
+            }
+            
+            return copy;
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Services\LeagueManager.DataGeneration.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Часть LeagueManager - генерация данных и симуляция
+    /// </summary>
+    public partial class LeagueManager
+    {
+        /// <summary>
+        /// Генерирует тестовые данные для демонстрации
+        /// </summary>
+        public void GenerateMockData()
+        {
+            // Создаем тестовые команды
+            var teams = new List<Team>
+            {
+                new Team { Id = 1, Name = "Спартак" },
+                new Team { Id = 2, Name = "ЦСКА" },
+                new Team { Id = 3, Name = "Локомотив" },
+                new Team { Id = 4, Name = "Динамо" },
+                new Team { Id = 5, Name = "Зенит" }
+            };
+
+            Teams = teams;
+
+            // Создаем тестовые матчи
+            var matches = new List<Match>
+            {
+                new Match { Id = 1, HomeTeam = teams[0], AwayTeam = teams[1], HomeGoals = 2, AwayGoals = 1, IsPlayed = true, Round = 1 },
+                new Match { Id = 2, HomeTeam = teams[2], AwayTeam = teams[3], HomeGoals = 1, AwayGoals = 1, IsPlayed = true, Round = 1 },
+                new Match { Id = 3, HomeTeam = teams[4], AwayTeam = teams[0], HomeGoals = 0, AwayGoals = 3, IsPlayed = true, Round = 2 },
+                new Match { Id = 4, HomeTeam = teams[1], AwayTeam = teams[2], HomeGoals = 2, AwayGoals = 0, IsPlayed = true, Round = 2 }
+            };
+
+            Matches = matches;
+
+            // Обрабатываем все матчи
+            ProcessAllMatches();
+        }
+
+        /// <summary>
+        /// Генерирует полное расписание для лиги (круговая система)
+        /// Для 20 команд создается 380 матчей (каждая команда играет с каждой дома и в гостях)
+        /// </summary>
+        /// <param name="teamCount">Количество команд (по умолчанию 20)</param>
+        public void GenerateFullSchedule(int teamCount = 20)
+        {
+            if (teamCount < Constants.MIN_TEAMS_IN_LEAGUE || teamCount > Constants.MAX_TEAMS_IN_LEAGUE)
+            {
+                throw new ArgumentException($"Количество команд должно быть от {Constants.MIN_TEAMS_IN_LEAGUE} до {Constants.MAX_TEAMS_IN_LEAGUE}");
+            }
+
+            // Генерируем команды
+            Teams.Clear();
+            string[] teamNames = {
+                "Спартак", "ЦСКА", "Локомотив", "Динамо", "Зенит",
+                "Краснодар", "Рубин", "Ростов", "Урал", "Ахмат",
+                "Сочи", "Крылья Советов", "Оренбург", "Факел", "Балтика",
+                "Нижний Новгород", "Химки", "Торпедо", "Пари НН", "Акрон"
+            };
+
+            for (int i = 0; i < teamCount; i++)
+            {
+                Teams.Add(new Team
+                {
+                    Id = i + 1,
+                    Name = i < teamNames.Length ? teamNames[i] : $"Команда {i + 1}"
+                });
+            }
+
+            // Генерируем расписание по алгоритму круговой системы
+            Matches.Clear();
+            int matchId = 1;
+            int totalRounds = (teamCount - 1) * 2; // Два круга (дома и в гостях)
+
+            // Первый круг (каждая команда играет дома с каждой)
+            for (int round = 1; round <= teamCount - 1; round++)
+            {
+                for (int i = 0; i < teamCount / 2; i++)
+                {
+                    int home = (round + i - 1) % (teamCount - 1);
+                    int away = (teamCount - 1 - i + round - 1) % (teamCount - 1);
+
+                    // Последняя команда всегда фиксирована
+                    if (i == 0)
+                    {
+                        away = teamCount - 1;
+                    }
+
+                    // Чередуем дома/гости для баланса
+                    if (round % 2 == 1)
+                    {
+                        Matches.Add(new Match
+                        {
+                            Id = matchId++,
+                            Round = round,
+                            HomeTeam = Teams[home],
+                            AwayTeam = Teams[away],
+                            IsPlayed = false
+                        });
+                    }
+                    else
+                    {
+                        Matches.Add(new Match
+                        {
+                            Id = matchId++,
+                            Round = round,
+                            HomeTeam = Teams[away],
+                            AwayTeam = Teams[home],
+                            IsPlayed = false
+                        });
+                    }
+                }
+            }
+
+            // Второй круг (зеркальные матчи)
+            int firstCircleMatches = Matches.Count;
+            for (int i = 0; i < firstCircleMatches; i++)
+            {
+                var originalMatch = Matches[i];
+                Matches.Add(new Match
+                {
+                    Id = matchId++,
+                    Round = originalMatch.Round + (teamCount - 1),
+                    HomeTeam = originalMatch.AwayTeam,
+                    AwayTeam = originalMatch.HomeTeam,
+                    IsPlayed = false
+                });
+            }
+
+            Console.WriteLine($"Создано {Teams.Count} команд и {Matches.Count} матчей в {totalRounds} турах");
+        }
+
+        /// <summary>
+        /// Симулирует случайные результаты для всех матчей (без LINQ)
+        /// </summary>
+        /// <param name="upToRound">До какого тура симулировать (0 = все туры)</param>
+        public void SimulateMatches(int upToRound = 0)
+        {
+            var random = new Random();
+            
+            // Фильтруем матчи вручную
+            List<Match> matchesToSimulate = new List<Match>();
+            for (int i = 0; i < Matches.Count; i++)
+            {
+                Match match = Matches[i];
+                if (!match.IsPlayed)
+                {
+                    if (upToRound > 0)
+                    {
+                        if (match.Round <= upToRound)
+                            matchesToSimulate.Add(match);
+                    }
+                    else
+                    {
+                        matchesToSimulate.Add(match);
+                    }
+                }
+            }
+
+            // Симулируем результаты
+            for (int i = 0; i < matchesToSimulate.Count; i++)
+            {
+                // Генерируем реалистичные счета (0-5 голов)
+                matchesToSimulate[i].HomeGoals = random.Next(0, 6);
+                matchesToSimulate[i].AwayGoals = random.Next(0, 6);
+                matchesToSimulate[i].IsPlayed = true;
+            }
+
+            // Обрабатываем все сыгранные матчи
+            ProcessAllMatches();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Services\LeagueManager.MatchProcessing.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Часть LeagueManager - обработка матчей и статистики
+    /// </summary>
+    public partial class LeagueManager
+    {
+        /// <summary>
+        /// Обрабатывает результат матча и обновляет статистику команд
+        /// </summary>
+        /// <param name="match">Матч для обработки</param>
+        public void ProcessMatchResult(Match match)
+        {
+            if (!match.IsPlayed) 
+            {
+                Console.WriteLine($"Матч {match.Id} еще не сыгран");
+                return;
+            }
+
+            Console.WriteLine($"Обработка матча: {match.HomeTeam.Name} {match.HomeGoals}:{match.AwayGoals} {match.AwayTeam.Name}");
+
+            match.HomeTeam.Played++;
+            match.AwayTeam.Played++;
+
+            match.HomeTeam.GoalsFor += match.HomeGoals;
+            match.HomeTeam.GoalsAgainst += match.AwayGoals;
+
+            match.AwayTeam.GoalsFor += match.AwayGoals;
+            match.AwayTeam.GoalsAgainst += match.HomeGoals;
+
+            if (match.HomeGoals > match.AwayGoals)
+            {
+                match.HomeTeam.Wins++;
+                match.AwayTeam.Losses++;
+                Console.WriteLine($"Победа хозяев: {match.HomeTeam.Name}");
+            }
+            else if (match.HomeGoals < match.AwayGoals)
+            {
+                match.AwayTeam.Wins++;
+                match.HomeTeam.Losses++;
+                Console.WriteLine($"Победа гостей: {match.AwayTeam.Name}");
+            }
+            else
+            {
+                match.HomeTeam.Draws++;
+                match.AwayTeam.Draws++;
+                Console.WriteLine("Ничья");
+            }
+        }
+
+        /// <summary>
+        /// Обрабатывает все матчи и записывает статистику по турам
+        /// ИСПРАВЛЕНИЕ БАГА: Теперь статистика записывается после обработки ВСЕХ матчей каждого тура
+        /// </summary>
+        public void ProcessAllMatches()
+        {
+            // Группируем матчи по турам вручную
+            List<Match> playedMatches = ManualAlgorithms.Where(Matches, m => m.IsPlayed);
+            Dictionary<int, List<Match>> matchesByRound = ManualAlgorithms.GroupBy(playedMatches, m => m.Round);
+            
+            // Сортируем ключи (номера туров) вручную
+            List<int> rounds = new List<int>();
+            foreach (var key in matchesByRound.Keys)
+            {
+                rounds.Add(key);
+            }
+            rounds = ManualAlgorithms.OrderBy(rounds, r => r);
+
+            // Обрабатываем каждый тур
+            for (int i = 0; i < rounds.Count; i++)
+            {
+                int round = rounds[i];
+                List<Match> roundMatches = matchesByRound[round];
+                
+                // Обрабатываем все матчи тура
+                for (int j = 0; j < roundMatches.Count; j++)
+                {
+                    ProcessMatchResult(roundMatches[j]);
+                }
+                
+                // Записываем статистику только после обработки ВСЕХ матчей тура
+                RecordRoundStats(round);
+            }
+        }
+
+        /// <summary>
+        /// Записывает статистику команд на конец тура
+        /// </summary>
+        /// <param name="round">Номер тура</param>
+        private void RecordRoundStats(int round)
+        {
+            try
+            {
+                Console.WriteLine($"Запись статистики для тура {round}");
+                var standings = GetStandings();
+                for (int i = 0; i < standings.Count; i++)
+                {
+                    RoundHistory.Add(new TeamRoundStats
+                    {
+                        TeamId = standings[i].Id,
+                        TeamName = standings[i].Name,
+                        Round = round,
+                        Points = standings[i].Points,
+                        Position = i + 1
+                    });
+                }
+                Console.WriteLine($"Статистика для {standings.Count} команд записана");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при записи статистики тура {round}: {ex.Message}");
+            }
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Services\LeagueManager.Search.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Часть LeagueManager - поиск и фильтрация команд
+    /// </summary>
+    public partial class LeagueManager
+    {
+        /// <summary>
+        /// Получает матчи между двумя командами
+        /// </summary>
+        /// <param name="team1">Первая команда</param>
+        /// <param name="team2">Вторая команда</param>
+        /// <returns>Список матчей между командами</returns>
+        public List<Match> GetHeadToHead(Team team1, Team team2)
+        {
+            if (team1 == null || team2 == null)
+                return new List<Match>();
+
+            return ManualAlgorithms.Where(Matches, m =>
+                (m.HomeTeam == team1 && m.AwayTeam == team2) ||
+                (m.HomeTeam == team2 && m.AwayTeam == team1)
+            );
+        }
+
+        /// <summary>
+        /// Поиск команд по условию
+        /// </summary>
+        /// <param name="predicate">Условие поиска</param>
+        /// <returns>Список найденных команд</returns>
+        public List<Team> SearchTeams(Func<Team, bool> predicate)
+        {
+            if (predicate == null)
+                return new List<Team>();
+
+            return ManualAlgorithms.Where(Teams, predicate);
+        }
+
+        /// <summary>
+        /// Критерии поиска команд
+        /// </summary>
+        public class SearchCriteria
+        {
+            public int? MinGoalsFor { get; set; }
+            public int? MaxGoalsFor { get; set; }
+            public int? MinGoalsAgainst { get; set; }
+            public int? MaxGoalsAgainst { get; set; }
+            public int? MinPoints { get; set; }
+            public int? MaxPoints { get; set; }
+            public int? MinWins { get; set; }
+            public int? MinDraws { get; set; }
+            public int? MinLosses { get; set; }
+            public int? MinGoalDifference { get; set; }
+            public int? MaxGoalDifference { get; set; }
+            public string NameContains { get; set; }
+        }
+
+        /// <summary>
+        /// Расширенный поиск команд по множественным критериям (без LINQ)
+        /// </summary>
+        public List<Team> SearchTeamsByCriteria(SearchCriteria criteria)
+        {
+            if (criteria == null)
+                return new List<Team>(Teams);
+
+            List<Team> result = new List<Team>(Teams);
+
+            // Применяем фильтры последовательно
+            if (criteria.MinGoalsFor.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.GoalsFor >= criteria.MinGoalsFor.Value);
+
+            if (criteria.MaxGoalsFor.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.GoalsFor <= criteria.MaxGoalsFor.Value);
+
+            if (criteria.MinGoalsAgainst.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.GoalsAgainst >= criteria.MinGoalsAgainst.Value);
+
+            if (criteria.MaxGoalsAgainst.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.GoalsAgainst <= criteria.MaxGoalsAgainst.Value);
+
+            if (criteria.MinPoints.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.Points >= criteria.MinPoints.Value);
+
+            if (criteria.MaxPoints.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.Points <= criteria.MaxPoints.Value);
+
+            if (criteria.MinWins.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.Wins >= criteria.MinWins.Value);
+
+            if (criteria.MinDraws.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.Draws >= criteria.MinDraws.Value);
+
+            if (criteria.MinLosses.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.Losses >= criteria.MinLosses.Value);
+
+            if (criteria.MinGoalDifference.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.GoalDifference >= criteria.MinGoalDifference.Value);
+
+            if (criteria.MaxGoalDifference.HasValue)
+                result = ManualAlgorithms.Where(result, t => t.GoalDifference <= criteria.MaxGoalDifference.Value);
+
+            if (!string.IsNullOrWhiteSpace(criteria.NameContains))
+                result = ManualAlgorithms.Where(result, t => t.Name.IndexOf(criteria.NameContains, StringComparison.OrdinalIgnoreCase) >= 0);
+
+            return result;
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Utils\Constants.cs
+================================================================================
+
+using System;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Константы приложения
+    /// </summary>
+    public static class Constants
+    {
+        /// <summary>
+        /// Очки за победу
+        /// </summary>
+        public const int POINTS_FOR_WIN = 3;
+
+        /// <summary>
+        /// Очки за ничью
+        /// </summary>
+        public const int POINTS_FOR_DRAW = 1;
+
+        /// <summary>
+        /// Очки за поражение
+        /// </summary>
+        public const int POINTS_FOR_LOSS = 0;
+
+        /// <summary>
+        /// Максимальное количество команд в лиге
+        /// </summary>
+        public const int MAX_TEAMS_IN_LEAGUE = 20;
+
+        /// <summary>
+        /// Минимальное количество команд в лиге
+        /// </summary>
+        public const int MIN_TEAMS_IN_LEAGUE = 4;
+
+        /// <summary>
+        /// Формат отображения даты
+        /// </summary>
+        public const string DATE_FORMAT = "dd.MM.yyyy";
+
+        /// <summary>
+        /// Формат отображения времени
+        /// </summary>
+        public const string TIME_FORMAT = "HH:mm";
+
+        /// <summary>
+        /// Путь к файлу данных по умолчанию
+        /// </summary>
+        public const string DEFAULT_DATA_PATH = "project/Data/data.json";
+    }
+}
+
+
+================================================================================
+ФАЙЛ: project\Utils\Converters.cs
+================================================================================
+
+using System;
+using System.Globalization;
+using System.Windows.Data;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Конвертер для отображения счета матча
+    /// </summary>
+    public class ScoreConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is Match match)
+            {
+                if (match.IsPlayed)
+                    return $"{match.HomeGoals} : {match.AwayGoals}";
+                else
+                    return "vs";
+            }
+            return "N/A";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Конвертер для форматирования позиции команды
+    /// </summary>
+    public class PositionConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int position)
+            {
+                return $"{position} место";
+            }
+            return "N/A";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Конвертер для форматирования разности голов
+    /// </summary>
+    public class GoalDifferenceConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int difference)
+            {
+                if (difference > 0)
+                    return $"+{difference}";
+                else
+                    return difference.ToString();
+            }
+            return "0";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Utils\Extensions.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Методы расширения для удобства работы с данными
+    /// </summary>
+    public static class Extensions
+    {
+        /// <summary>
+        /// Получает форму команды (последние N матчей) - без LINQ
+        /// </summary>
+        /// <param name="team">Команда</param>
+        /// <param name="matches">Все матчи</param>
+        /// <param name="count">Количество последних матчей</param>
+        /// <returns>Строка с результатами (W-победа, D-ничья, L-поражение)</returns>
+        public static string GetForm(this Team team, List<Match> matches, int count = 5)
+        {
+            // Фильтруем матчи команды
+            List<Match> teamMatches = ManualAlgorithms.Where(matches, 
+                m => m.IsPlayed && (m.HomeTeam.Id == team.Id || m.AwayTeam.Id == team.Id));
+            
+            // Сортируем по убыванию тура
+            teamMatches = ManualAlgorithms.OrderByDescending(teamMatches, m => m.Round);
+            
+            // Берем первые count матчей
+            teamMatches = ManualAlgorithms.Take(teamMatches, count);
+
+            string form = "";
+            for (int i = 0; i < teamMatches.Count; i++)
+            {
+                Match match = teamMatches[i];
+                if (match.HomeTeam.Id == team.Id)
+                {
+                    if (match.HomeGoals > match.AwayGoals) form += "W";
+                    else if (match.HomeGoals < match.AwayGoals) form += "L";
+                    else form += "D";
+                }
+                else
+                {
+                    if (match.AwayGoals > match.HomeGoals) form += "W";
+                    else if (match.AwayGoals < match.HomeGoals) form += "L";
+                    else form += "D";
+                }
+            }
+
+            return form;
+        }
+
+        /// <summary>
+        /// Проверяет, является ли команда в хорошей форме (без LINQ)
+        /// </summary>
+        /// <param name="team">Команда</param>
+        /// <param name="matches">Все матчи</param>
+        /// <returns>True, если команда в хорошей форме</returns>
+        public static bool IsInGoodForm(this Team team, List<Match> matches)
+        {
+            string form = team.GetForm(matches, 3);
+            
+            // Подсчитываем победы вручную
+            int wins = 0;
+            for (int i = 0; i < form.Length; i++)
+            {
+                if (form[i] == 'W')
+                    wins++;
+            }
+            
+            return wins >= 2;
+        }
+
+        /// <summary>
+        /// Получает процент побед команды
+        /// </summary>
+        /// <param name="team">Команда</param>
+        /// <returns>Процент побед</returns>
+        public static double GetWinPercentage(this Team team)
+        {
+            if (team.Played == 0) return 0;
+            return (double)team.Wins / team.Played * 100;
+        }
+
+        /// <summary>
+        /// Получает среднее количество голов за матч
+        /// </summary>
+        /// <param name="team">Команда</param>
+        /// <returns>Среднее количество голов</returns>
+        public static double GetAverageGoalsPerMatch(this Team team)
+        {
+            if (team.Played == 0) return 0;
+            return (double)team.GoalsFor / team.Played;
+        }
+    }
+}
+
+
+================================================================================
+ФАЙЛ: project\Utils\ManualAlgorithms.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Ручная реализация алгоритмов сортировки, фильтрации и группировки
+    /// Без использования LINQ и встроенных библиотечных функций
+    /// </summary>
+    public static class ManualAlgorithms
+    {
+        /// <summary>
+        /// Проверяет, содержит ли коллекция хотя бы один элемент
+        /// </summary>
+        public static bool Any<T>(List<T> collection)
+        {
+            if (collection == null) return false;
+            return collection.Count > 0;
+        }
+
+        /// <summary>
+        /// Проверяет, содержит ли коллекция элемент, удовлетворяющий условию
+        /// </summary>
+        public static bool Any<T>(List<T> collection, Func<T, bool> predicate)
+        {
+            if (collection == null || predicate == null) return false;
+            
+            for (int i = 0; i < collection.Count; i++)
+            {
+                if (predicate(collection[i]))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Фильтрует коллекцию по условию
+        /// </summary>
+        public static List<T> Where<T>(List<T> collection, Func<T, bool> predicate)
+        {
+            List<T> result = new List<T>();
+            if (collection == null || predicate == null) return result;
+            
+            for (int i = 0; i < collection.Count; i++)
+            {
+                if (predicate(collection[i]))
+                    result.Add(collection[i]);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Находит первый элемент, удовлетворяющий условию, или возвращает default
+        /// </summary>
+        public static T FirstOrDefault<T>(List<T> collection, Func<T, bool> predicate)
+        {
+            if (collection == null || predicate == null) return default(T);
+            
+            for (int i = 0; i < collection.Count; i++)
+            {
+                if (predicate(collection[i]))
+                    return collection[i];
+            }
+            return default(T);
+        }
+
+        /// <summary>
+        /// Подсчитывает количество элементов, удовлетворяющих условию
+        /// </summary>
+        public static int Count<T>(List<T> collection, Func<T, bool> predicate)
+        {
+            if (collection == null || predicate == null) return 0;
+            
+            int count = 0;
+            for (int i = 0; i < collection.Count; i++)
+            {
+                if (predicate(collection[i]))
+                    count++;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// Берет первые N элементов из коллекции
+        /// </summary>
+        public static List<T> Take<T>(List<T> collection, int count)
+        {
+            List<T> result = new List<T>();
+            if (collection == null || count <= 0) return result;
+            
+            int limit = Math.Min(count, collection.Count);
+            for (int i = 0; i < limit; i++)
+            {
+                result.Add(collection[i]);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Сортировка по возрастанию (QuickSort)
+        /// </summary>
+        public static List<T> OrderBy<T, TKey>(List<T> collection, Func<T, TKey> keySelector) 
+            where TKey : IComparable<TKey>
+        {
+            if (collection == null || keySelector == null) return new List<T>();
+            
+            List<T> result = new List<T>(collection);
+            QuickSort(result, keySelector, 0, result.Count - 1, true);
+            return result;
+        }
+
+        /// <summary>
+        /// Сортировка по убыванию (QuickSort)
+        /// </summary>
+        public static List<T> OrderByDescending<T, TKey>(List<T> collection, Func<T, TKey> keySelector) 
+            where TKey : IComparable<TKey>
+        {
+            if (collection == null || keySelector == null) return new List<T>();
+            
+            List<T> result = new List<T>(collection);
+            QuickSort(result, keySelector, 0, result.Count - 1, false);
+            return result;
+        }
+
+        /// <summary>
+        /// Многоуровневая сортировка
+        /// </summary>
+        public static List<T> ThenBy<T, TKey>(List<T> collection, Func<T, TKey> keySelector) 
+            where TKey : IComparable<TKey>
+        {
+            return OrderBy(collection, keySelector);
+        }
+
+        /// <summary>
+        /// Многоуровневая сортировка по убыванию
+        /// </summary>
+        public static List<T> ThenByDescending<T, TKey>(List<T> collection, Func<T, TKey> keySelector) 
+            where TKey : IComparable<TKey>
+        {
+            return OrderByDescending(collection, keySelector);
+        }
+
+        /// <summary>
+        /// Реализация QuickSort для сортировки
+        /// </summary>
+        private static void QuickSort<T, TKey>(List<T> list, Func<T, TKey> keySelector, int left, int right, bool ascending) 
+            where TKey : IComparable<TKey>
+        {
+            if (left < right)
+            {
+                int pivotIndex = Partition(list, keySelector, left, right, ascending);
+                QuickSort(list, keySelector, left, pivotIndex - 1, ascending);
+                QuickSort(list, keySelector, pivotIndex + 1, right, ascending);
+            }
+        }
+
+        private static int Partition<T, TKey>(List<T> list, Func<T, TKey> keySelector, int left, int right, bool ascending) 
+            where TKey : IComparable<TKey>
+        {
+            TKey pivot = keySelector(list[right]);
+            int i = left - 1;
+
+            for (int j = left; j < right; j++)
+            {
+                TKey current = keySelector(list[j]);
+                bool condition = ascending ? current.CompareTo(pivot) <= 0 : current.CompareTo(pivot) >= 0;
+                
+                if (condition)
+                {
+                    i++;
+                    T temp = list[i];
+                    list[i] = list[j];
+                    list[j] = temp;
+                }
+            }
+
+            T temp2 = list[i + 1];
+            list[i + 1] = list[right];
+            list[right] = temp2;
+            
+            return i + 1;
+        }
+
+        /// <summary>
+        /// Группировка элементов по ключу
+        /// </summary>
+        public static Dictionary<TKey, List<T>> GroupBy<T, TKey>(List<T> collection, Func<T, TKey> keySelector)
+        {
+            Dictionary<TKey, List<T>> groups = new Dictionary<TKey, List<T>>();
+            if (collection == null || keySelector == null) return groups;
+            
+            for (int i = 0; i < collection.Count; i++)
+            {
+                TKey key = keySelector(collection[i]);
+                if (!groups.ContainsKey(key))
+                {
+                    groups[key] = new List<T>();
+                }
+                groups[key].Add(collection[i]);
+            }
+            
+            return groups;
+        }
+
+        /// <summary>
+        /// Проекция (преобразование) элементов коллекции
+        /// </summary>
+        public static List<TResult> Select<T, TResult>(List<T> collection, Func<T, TResult> selector)
+        {
+            List<TResult> result = new List<TResult>();
+            if (collection == null || selector == null) return result;
+            
+            for (int i = 0; i < collection.Count; i++)
+            {
+                result.Add(selector(collection[i]));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Многоуровневая сортировка с несколькими критериями
+        /// </summary>
+        public static List<T> MultiSort<T>(List<T> collection, List<Comparison<T>> comparisons)
+        {
+            if (collection == null || comparisons == null || comparisons.Count == 0) 
+                return new List<T>();
+            
+            List<T> result = new List<T>(collection);
+            
+            // Используем стабильную сортировку слиянием для многоуровневой сортировки
+            MergeSort(result, comparisons, 0, result.Count - 1);
+            
+            return result;
+        }
+
+        private static void MergeSort<T>(List<T> list, List<Comparison<T>> comparisons, int left, int right)
+        {
+            if (left < right)
+            {
+                int middle = (left + right) / 2;
+                MergeSort(list, comparisons, left, middle);
+                MergeSort(list, comparisons, middle + 1, right);
+                Merge(list, comparisons, left, middle, right);
+            }
+        }
+
+        private static void Merge<T>(List<T> list, List<Comparison<T>> comparisons, int left, int middle, int right)
+        {
+            int leftSize = middle - left + 1;
+            int rightSize = right - middle;
+            
+            List<T> leftArray = new List<T>(leftSize);
+            List<T> rightArray = new List<T>(rightSize);
+            
+            for (int i = 0; i < leftSize; i++)
+                leftArray.Add(list[left + i]);
+            for (int j = 0; j < rightSize; j++)
+                rightArray.Add(list[middle + 1 + j]);
+            
+            int iIndex = 0, jIndex = 0, kIndex = left;
+            
+            while (iIndex < leftSize && jIndex < rightSize)
+            {
+                int compareResult = CompareMulti(leftArray[iIndex], rightArray[jIndex], comparisons);
+                
+                if (compareResult <= 0)
+                {
+                    list[kIndex] = leftArray[iIndex];
+                    iIndex++;
+                }
+                else
+                {
+                    list[kIndex] = rightArray[jIndex];
+                    jIndex++;
+                }
+                kIndex++;
+            }
+            
+            while (iIndex < leftSize)
+            {
+                list[kIndex] = leftArray[iIndex];
+                iIndex++;
+                kIndex++;
+            }
+            
+            while (jIndex < rightSize)
+            {
+                list[kIndex] = rightArray[jIndex];
+                jIndex++;
+                kIndex++;
+            }
+        }
+
+        private static int CompareMulti<T>(T a, T b, List<Comparison<T>> comparisons)
+        {
+            for (int i = 0; i < comparisons.Count; i++)
+            {
+                int result = comparisons[i](a, b);
+                if (result != 0)
+                    return result;
+            }
+            return 0;
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Utils\PerformanceTester.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Класс для тестирования производительности алгоритмов сортировки
+    /// </summary>
+    public static class PerformanceTester
+    {
+        /// <summary>
+        /// Генерирует случайные команды для тестирования
+        /// </summary>
+        /// <param name="count">Количество команд</param>
+        /// <returns>Список команд</returns>
+        public static List<Team> GenerateRandomTeams(int count)
+        {
+            Random random = new Random();
+            List<Team> teams = new List<Team>();
+            
+            for (int i = 0; i < count; i++)
+            {
+                teams.Add(new Team
+                {
+                    Id = i + 1,
+                    Name = $"Команда_{i + 1}",
+                    Played = random.Next(0, 38),
+                    Wins = random.Next(0, 20),
+                    Draws = random.Next(0, 10),
+                    Losses = random.Next(0, 20),
+                    GoalsFor = random.Next(0, 100),
+                    GoalsAgainst = random.Next(0, 100)
+                });
+            }
+            
+            return teams;
+        }
+
+        /// <summary>
+        /// Сортировка пузырьком (Bubble Sort) - простой алгоритм O(n²)
+        /// </summary>
+        public static List<Team> BubbleSort(List<Team> teams)
+        {
+            List<Team> result = new List<Team>(teams);
+            int n = result.Count;
+            
+            for (int i = 0; i < n - 1; i++)
+            {
+                for (int j = 0; j < n - i - 1; j++)
+                {
+                    // Сравниваем по очкам (по убыванию)
+                    if (result[j].Points < result[j + 1].Points)
+                    {
+                        Team temp = result[j];
+                        result[j] = result[j + 1];
+                        result[j + 1] = temp;
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        /// <summary>
+        /// Сортировка вставками (Insertion Sort) - простой алгоритм O(n²)
+        /// </summary>
+        public static List<Team> InsertionSort(List<Team> teams)
+        {
+            List<Team> result = new List<Team>(teams);
+            int n = result.Count;
+            
+            for (int i = 1; i < n; i++)
+            {
+                Team key = result[i];
+                int j = i - 1;
+                
+                // Сравниваем по очкам (по убыванию)
+                while (j >= 0 && result[j].Points < key.Points)
+                {
+                    result[j + 1] = result[j];
+                    j--;
+                }
+                result[j + 1] = key;
+            }
+            
+            return result;
+        }
+
+        /// <summary>
+        /// Измеряет время выполнения сортировки
+        /// </summary>
+        /// <param name="teams">Список команд</param>
+        /// <param name="sortMethod">Метод сортировки</param>
+        /// <returns>Время выполнения в миллисекундах</returns>
+        public static long MeasureSortTime(List<Team> teams, Func<List<Team>, List<Team>> sortMethod)
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            
+            sortMethod(teams);
+            
+            stopwatch.Stop();
+            return stopwatch.ElapsedMilliseconds;
+        }
+
+        /// <summary>
+        /// Запускает полное тестирование производительности
+        /// </summary>
+        public static void RunPerformanceTests()
+        {
+            Console.WriteLine("=== ТЕСТИРОВАНИЕ ПРОИЗВОДИТЕЛЬНОСТИ АЛГОРИТМОВ СОРТИРОВКИ ===\n");
+            
+            int[] testSizes = { 100, 1000, 10000 };
+            
+            foreach (int size in testSizes)
+            {
+                Console.WriteLine($"--- Тестирование на {size} элементах ---");
+                
+                // Генерируем данные
+                List<Team> teams = GenerateRandomTeams(size);
+                
+                // Тест 1: QuickSort (наш оптимизированный алгоритм)
+                long quickSortTime = MeasureSortTime(teams, t => 
+                    ManualAlgorithms.OrderByDescending(t, team => team.Points));
+                Console.WriteLine($"QuickSort:        {quickSortTime} мс");
+                
+                // Тест 2: Bubble Sort (простой алгоритм)
+                long bubbleSortTime = MeasureSortTime(teams, BubbleSort);
+                Console.WriteLine($"Bubble Sort:      {bubbleSortTime} мс");
+                
+                // Тест 3: Insertion Sort (простой алгоритм)
+                long insertionSortTime = MeasureSortTime(teams, InsertionSort);
+                Console.WriteLine($"Insertion Sort:   {insertionSortTime} мс");
+                
+                // Вычисляем ускорение
+                if (bubbleSortTime > 0)
+                {
+                    double speedupBubble = (double)bubbleSortTime / quickSortTime;
+                    Console.WriteLine($"\nУскорение QuickSort vs Bubble Sort:    {speedupBubble:F2}x");
+                }
+                
+                if (insertionSortTime > 0)
+                {
+                    double speedupInsertion = (double)insertionSortTime / quickSortTime;
+                    Console.WriteLine($"Ускорение QuickSort vs Insertion Sort: {speedupInsertion:F2}x");
+                }
+                
+                Console.WriteLine();
+            }
+            
+            Console.WriteLine("=== ТЕСТИРОВАНИЕ ЗАВЕРШЕНО ===\n");
+        }
+
+        /// <summary>
+        /// Запускает детальное тестирование с многоуровневой сортировкой
+        /// </summary>
+        public static void RunDetailedPerformanceTests()
+        {
+            Console.WriteLine("=== ДЕТАЛЬНОЕ ТЕСТИРОВАНИЕ МНОГОУРОВНЕВОЙ СОРТИРОВКИ ===\n");
+            
+            int[] testSizes = { 100, 1000, 5000 };
+            
+            foreach (int size in testSizes)
+            {
+                Console.WriteLine($"--- Тестирование на {size} элементах ---");
+                
+                List<Team> teams = GenerateRandomTeams(size);
+                
+                // Многоуровневая сортировка (как в реальном приложении)
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
+                
+                List<Comparison<Team>> comparisons = new List<Comparison<Team>>
+                {
+                    (a, b) => b.Points.CompareTo(a.Points),
+                    (a, b) => b.GoalDifference.CompareTo(a.GoalDifference),
+                    (a, b) => b.GoalsFor.CompareTo(a.GoalsFor),
+                    (a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal)
+                };
+                
+                ManualAlgorithms.MultiSort(teams, comparisons);
+                
+                stopwatch.Stop();
+                Console.WriteLine($"Многоуровневая сортировка (MergeSort): {stopwatch.ElapsedMilliseconds} мс");
+                
+                // Простая сортировка для сравнения
+                stopwatch.Restart();
+                BubbleSort(teams);
+                stopwatch.Stop();
+                Console.WriteLine($"Простая сортировка (Bubble Sort):      {stopwatch.ElapsedMilliseconds} мс");
+                
+                Console.WriteLine();
+            }
+            
+            Console.WriteLine("=== ДЕТАЛЬНОЕ ТЕСТИРОВАНИЕ ЗАВЕРШЕНО ===\n");
+        }
+
+        /// <summary>
+        /// Тестирует производительность фильтрации
+        /// </summary>
+        public static void RunFilterPerformanceTests()
+        {
+            Console.WriteLine("=== ТЕСТИРОВАНИЕ ПРОИЗВОДИТЕЛЬНОСТИ ФИЛЬТРАЦИИ ===\n");
+            
+            int[] testSizes = { 1000, 10000, 50000 };
+            
+            foreach (int size in testSizes)
+            {
+                Console.WriteLine($"--- Тестирование на {size} элементах ---");
+                
+                List<Team> teams = GenerateRandomTeams(size);
+                
+                // Тест фильтрации
+                Stopwatch stopwatch = new Stopwatch();
+                stopwatch.Start();
+                
+                List<Team> filtered = ManualAlgorithms.Where(teams, t => t.Points > 30);
+                
+                stopwatch.Stop();
+                Console.WriteLine($"Фильтрация (Where):     {stopwatch.ElapsedMilliseconds} мс");
+                Console.WriteLine($"Найдено элементов:      {filtered.Count}");
+                
+                // Тест поиска
+                stopwatch.Restart();
+                Team found = ManualAlgorithms.FirstOrDefault(teams, t => t.Points > 50);
+                stopwatch.Stop();
+                Console.WriteLine($"Поиск (FirstOrDefault): {stopwatch.ElapsedMilliseconds} мс");
+                Console.WriteLine($"Найден элемент:         {(found != null ? "Да" : "Нет")}");
+                
+                Console.WriteLine();
+            }
+            
+            Console.WriteLine("=== ТЕСТИРОВАНИЕ ФИЛЬТРАЦИИ ЗАВЕРШЕНО ===\n");
+        }
+
+        /// <summary>
+        /// Запускает все тесты производительности
+        /// </summary>
+        public static void RunAllTests()
+        {
+            Console.WriteLine("\n╔════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║  КОМПЛЕКСНОЕ ТЕСТИРОВАНИЕ ПРОИЗВОДИТЕЛЬНОСТИ АЛГОРИТМОВ   ║");
+            Console.WriteLine("╚════════════════════════════════════════════════════════════╝\n");
+            
+            RunPerformanceTests();
+            RunDetailedPerformanceTests();
+            RunFilterPerformanceTests();
+            
+            Console.WriteLine("╔════════════════════════════════════════════════════════════╗");
+            Console.WriteLine("║              ВСЕ ТЕСТЫ УСПЕШНО ЗАВЕРШЕНЫ                  ║");
+            Console.WriteLine("╚════════════════════════════════════════════════════════════╝\n");
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Utils\ScheduleGenerator.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
+
+namespace FootballLeague
+{
+    /// <summary>
+    /// Генератор расписания и данных для футбольной лиги
+    /// </summary>
+    public static class ScheduleGenerator
+    {
+        /// <summary>
+        /// Генерирует полное расписание и сохраняет в JSON
+        /// </summary>
+        /// <param name="outputPath">Путь для сохранения JSON файла</param>
+        /// <param name="teamCount">Количество команд (по умолчанию 20)</param>
+        /// <param name="simulateRounds">Количество туров для симуляции (0 = не симулировать)</param>
+        public static void GenerateAndSave(string outputPath, int teamCount = 20, int simulateRounds = 0)
+        {
+            var manager = new LeagueManager();
+            manager.GenerateFullSchedule(teamCount);
+            
+            if (simulateRounds > 0)
+            {
+                manager.SimulateMatches(simulateRounds);
+            }
+            
+            SaveToJson(manager, outputPath);
+        }
+        
+        /// <summary>
+        /// Сохраняет данные лиги в JSON файл (без LINQ)
+        /// </summary>
+        private static void SaveToJson(LeagueManager manager, string filePath)
+        {
+            // Преобразуем команды вручную
+            List<object> teamsData = new List<object>();
+            for (int i = 0; i < manager.Teams.Count; i++)
+            {
+                Team t = manager.Teams[i];
+                teamsData.Add(new
+                {
+                    id = t.Id,
+                    name = t.Name
+                });
+            }
+            
+            // Преобразуем матчи вручную
+            List<object> matchesData = new List<object>();
+            for (int i = 0; i < manager.Matches.Count; i++)
+            {
+                Match m = manager.Matches[i];
+                matchesData.Add(new
+                {
+                    id = m.Id,
+                    round = m.Round,
+                    homeTeamId = m.HomeTeam.Id,
+                    awayTeamId = m.AwayTeam.Id,
+                    homeGoals = m.HomeGoals,
+                    awayGoals = m.AwayGoals,
+                    isPlayed = m.IsPlayed
+                });
+            }
+            
+            var data = new
+            {
+                teams = teamsData,
+                matches = matchesData
+            };
+            
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            
+            string json = JsonSerializer.Serialize(data, options);
+            
+            // Создаем директорию если не существует
+            string directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            
+            File.WriteAllText(filePath, json);
+            Console.WriteLine($"Данные сохранены в {filePath}");
+            Console.WriteLine($"Команд: {manager.Teams.Count}");
+            Console.WriteLine($"Матчей: {manager.Matches.Count}");
+            
+            // Подсчитываем сыгранные матчи вручную
+            int playedCount = ManualAlgorithms.Count(manager.Matches, m => m.IsPlayed);
+            Console.WriteLine($"Сыграно матчей: {playedCount}");
+        }
+    }
+}
+
+
+
+
+================================================================================
+ФАЙЛ: project\ViewModels\MainViewModel.cs
+================================================================================
+
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Windows;
+using System.Windows.Input;
+using System.IO;
+using System.Threading.Tasks;
+using OxyPlot;
+
+namespace FootballLeague.ViewModels
+{
+    /// <summary>
+    /// Главная ViewModel для MainWindow
+    /// </summary>
+    public class MainViewModel : ViewModelBase
+    {
+        private readonly LeagueManager _leagueManager;
+
+        #region Properties
+
+        private ObservableCollection<Team> _standings;
+        public ObservableCollection<Team> Standings
+        {
+            get => _standings;
+            set => SetProperty(ref _standings, value);
+        }
+
+        private ObservableCollection<Match> _headToHeadMatches;
+        public ObservableCollection<Match> HeadToHeadMatches
+        {
+            get => _headToHeadMatches;
+            set => SetProperty(ref _headToHeadMatches, value);
+        }
+
+        private ObservableCollection<Team> _searchResults;
+        public ObservableCollection<Team> SearchResults
+        {
+            get => _searchResults;
+            set => SetProperty(ref _searchResults, value);
+        }
+
+        private ObservableCollection<Match> _remainingMatches;
+        public ObservableCollection<Match> RemainingMatches
+        {
+            get => _remainingMatches;
+            set => SetProperty(ref _remainingMatches, value);
+        }
+
+        private ObservableCollection<Team> _predictionStandings;
+        public ObservableCollection<Team> PredictionStandings
+        {
+            get => _predictionStandings;
+            set => SetProperty(ref _predictionStandings, value);
+        }
+
+        private ObservableCollection<TeamRoundStats> _teamHistory;
+        public ObservableCollection<TeamRoundStats> TeamHistory
+        {
+            get => _teamHistory;
+            set => SetProperty(ref _teamHistory, value);
+        }
+
+        private ObservableCollection<Team> _teams;
+        public ObservableCollection<Team> Teams
+        {
+            get => _teams;
+            set => SetProperty(ref _teams, value);
+        }
+
+        private Team _selectedTeam1;
+        public Team SelectedTeam1
+        {
+            get => _selectedTeam1;
+            set => SetProperty(ref _selectedTeam1, value);
+        }
+
+        private Team _selectedTeam2;
+        public Team SelectedTeam2
+        {
+            get => _selectedTeam2;
+            set => SetProperty(ref _selectedTeam2, value);
+        }
+
+        private Team _selectedHistoryTeam;
+        public Team SelectedHistoryTeam
+        {
+            get => _selectedHistoryTeam;
+            set => SetProperty(ref _selectedHistoryTeam, value);
+        }
+
+        private bool _isLoading;
+        public bool IsLoading
+        {
+            get => _isLoading;
+            set => SetProperty(ref _isLoading, value);
+        }
+
+        private string _loadingText;
+        public string LoadingText
+        {
+            get => _loadingText;
+            set => SetProperty(ref _loadingText, value);
+        }
+
+        private PlotModel _chartModel;
+        public PlotModel ChartModel
+        {
+            get => _chartModel;
+            set => SetProperty(ref _chartModel, value);
+        }
+
+        private string _graphInfoText;
+        public string GraphInfoText
+        {
+            get => _graphInfoText;
+            set => SetProperty(ref _graphInfoText, value);
+        }
+
+        // Search criteria properties
+        private string _minGoalsText;
+        public string MinGoalsText
+        {
+            get => _minGoalsText;
+            set => SetProperty(ref _minGoalsText, value);
+        }
+
+        private string _maxGoalsText;
+        public string MaxGoalsText
+        {
+            get => _maxGoalsText;
+            set => SetProperty(ref _maxGoalsText, value);
+        }
+
+        private string _minPointsText;
+        public string MinPointsText
+        {
+            get => _minPointsText;
+            set => SetProperty(ref _minPointsText, value);
+        }
+
+        private string _minWinsText;
+        public string MinWinsText
+        {
+            get => _minWinsText;
+            set => SetProperty(ref _minWinsText, value);
+        }
+
+        private string _minGoalDiffText;
+        public string MinGoalDiffText
+        {
+            get => _minGoalDiffText;
+            set => SetProperty(ref _minGoalDiffText, value);
+        }
+
+        private string _nameContainsText;
+        public string NameContainsText
+        {
+            get => _nameContainsText;
+            set => SetProperty(ref _nameContainsText, value);
+        }
+
+        private ObservableCollection<Team> _selectedGraphTeams;
+        public ObservableCollection<Team> SelectedGraphTeams
+        {
+            get => _selectedGraphTeams;
+            set => SetProperty(ref _selectedGraphTeams, value);
+        }
+
+        #endregion
+
+        #region Commands
+
+        public ICommand SearchHeadToHeadCommand { get; }
+        public ICommand SearchTeamsCommand { get; }
+        public ICommand ClearSearchCommand { get; }
+        public ICommand CalculatePredictionCommand { get; }
+        public ICommand ResetPredictionCommand { get; }
+        public ICommand ShowHistoryCommand { get; }
+        public ICommand ShowPositionGraphCommand { get; }
+        public ICommand ShowPointsGraphCommand { get; }
+        public ICommand GenerateDataCommand { get; }
+        public ICommand ExitCommand { get; }
+        public ICommand AboutCommand { get; }
+
+        #endregion
+
+        public MainViewModel()
+        {
+            _leagueManager = new LeagueManager();
+            SelectedGraphTeams = new ObservableCollection<Team>();
+            GraphInfoText = "Выберите команды и нажмите кнопку для отображения графика";
+
+            // Initialize commands
+            SearchHeadToHeadCommand = new RelayCommand(async _ => await SearchHeadToHeadAsync(), _ => CanSearchHeadToHead());
+            SearchTeamsCommand = new RelayCommand(async _ => await SearchTeamsAsync());
+            ClearSearchCommand = new RelayCommand(_ => ClearSearch());
+            CalculatePredictionCommand = new RelayCommand(async _ => await CalculatePredictionAsync());
+            ResetPredictionCommand = new RelayCommand(_ => ResetPrediction());
+            ShowHistoryCommand = new RelayCommand(async _ => await ShowHistoryAsync(), _ => SelectedHistoryTeam != null);
+            ShowPositionGraphCommand = new RelayCommand(async _ => await ShowPositionGraphAsync());
+            ShowPointsGraphCommand = new RelayCommand(async _ => await ShowPointsGraphAsync());
+            GenerateDataCommand = new RelayCommand(_ => GenerateData());
+            ExitCommand = new RelayCommand(_ => Application.Current.Shutdown());
+            AboutCommand = new RelayCommand(_ => ShowAbout());
+
+            // ВЫЗОВИТЕ ЭТО ОДИН РАЗ, ЧТОБЫ СДЕЛАТЬ СКРИНШОТ КОНСОЛИ
+            PerformanceTester.RunAllTests();
+
+            InitializeLeague();
+        }
+
+        private void InitializeLeague()
+        {
+            try
+            {
+                string dataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
+
+                if (File.Exists(dataPath))
+                {
+                    DataLoader.LoadFromJson(_leagueManager, dataPath);
+                }
+                else
+                {
+                    MessageBox.Show($"Файл data.json не найден по пути:\n{dataPath}\n\nИспользуются тестовые данные.", "Предупреждение");
+                    _leagueManager.GenerateMockData();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка загрузки данных: {ex.Message}", "Ошибка");
+                _leagueManager.GenerateMockData();
+            }
+
+            RefreshStandings();
+            PopulateTeams();
+            RefreshPrediction();
+        }
+
+        private void RefreshStandings()
+        {
+            var standings = _leagueManager.GetStandings();
+            Standings = new ObservableCollection<Team>(standings);
+        }
+
+        private void PopulateTeams()
+        {
+            List<Team> sortedTeams = ManualAlgorithms.OrderBy(_leagueManager.Teams, t => t.Name);
+            Teams = new ObservableCollection<Team>(sortedTeams);
+        }
+
+        private bool CanSearchHeadToHead()
+        {
+            return SelectedTeam1 != null && SelectedTeam2 != null && SelectedTeam1.Id != SelectedTeam2.Id;
+        }
+
+        private async Task SearchHeadToHeadAsync()
+        {
+            if (SelectedTeam1 == null || SelectedTeam2 == null || SelectedTeam1.Id == SelectedTeam2.Id)
+            {
+                MessageBox.Show("Выберите разные команды", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            ShowLoading("Ищем личные встречи...");
+            await Task.Run(() =>
+            {
+                var headToHead = _leagueManager.GetHeadToHead(SelectedTeam1, SelectedTeam2);
+                List<Match> sortedMatches = ManualAlgorithms.OrderBy(headToHead, m => m.Round);
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    HeadToHeadMatches = new ObservableCollection<Match>(sortedMatches);
+                    HideLoading();
+                });
+            });
+        }
+
+        private async Task SearchTeamsAsync()
+        {
+            ShowLoading("Ищем команды...");
+            await Task.Run(() =>
+            {
+                try
+                {
+                    var criteria = new LeagueManager.SearchCriteria();
+
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        if (int.TryParse(MinGoalsText, out int minGoals))
+                            criteria.MinGoalsFor = minGoals;
+
+                        if (int.TryParse(MaxGoalsText, out int maxGoals))
+                            criteria.MaxGoalsFor = maxGoals;
+
+                        if (int.TryParse(MinPointsText, out int minPoints))
+                            criteria.MinPoints = minPoints;
+
+                        if (int.TryParse(MinWinsText, out int minWins))
+                            criteria.MinWins = minWins;
+
+                        if (int.TryParse(MinGoalDiffText, out int minDiff))
+                            criteria.MinGoalDifference = minDiff;
+
+                        if (!string.IsNullOrWhiteSpace(NameContainsText))
+                            criteria.NameContains = NameContainsText;
+                    });
+
+                    var results = _leagueManager.SearchTeamsByCriteria(criteria);
+
+                    // Многоуровневая сортировка вручную
+                    List<Comparison<Team>> comparisons = new List<Comparison<Team>>
+                    {
+                        (a, b) => b.Points.CompareTo(a.Points),
+                        (a, b) => b.GoalDifference.CompareTo(a.GoalDifference),
+                        (a, b) => b.GoalsFor.CompareTo(a.GoalsFor)
+                    };
+                    List<Team> sortedResults = ManualAlgorithms.MultiSort(results, comparisons);
+
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        SearchResults = new ObservableCollection<Team>(sortedResults);
+                        HideLoading();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show($"Ошибка поиска: {ex.Message}", "Ошибка",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        HideLoading();
+                    });
+                }
+            });
+        }
+
+        private void ClearSearch()
+        {
+            MinGoalsText = string.Empty;
+            MaxGoalsText = string.Empty;
+            MinPointsText = string.Empty;
+            MinWinsText = string.Empty;
+            MinGoalDiffText = string.Empty;
+            NameContainsText = string.Empty;
+            SearchResults = null;
+        }
+
+        private void RefreshPrediction()
+        {
+            List<Match> notPlayed = ManualAlgorithms.Where(_leagueManager.Matches, m => !m.IsPlayed);
+            List<Match> sortedMatches = ManualAlgorithms.OrderBy(notPlayed, m => m.Round);
+            RemainingMatches = new ObservableCollection<Match>(sortedMatches);
+
+            var prediction = _leagueManager.GetStandings();
+            PredictionStandings = new ObservableCollection<Team>(prediction);
+        }
+
+        private async Task CalculatePredictionAsync()
+        {
+            ShowLoading("Рассчитываем прогноз...");
+            await Task.Run(() =>
+            {
+                try
+                {
+                    var remainingMatches = Application.Current.Dispatcher.Invoke(() => RemainingMatches);
+
+                    if (remainingMatches == null || remainingMatches.Count == 0)
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            MessageBox.Show("Нет оставшихся матчей для прогноза", "Информация",
+                                MessageBoxButton.OK, MessageBoxImage.Information);
+                            HideLoading();
+                        });
+                        return;
+                    }
+
+                    var predictionManager = _leagueManager.CreatePredictionCopy();
+
+                    for (int i = 0; i < remainingMatches.Count; i++)
+                    {
+                        Match match = remainingMatches[i];
+                        if (match.HomeGoals >= 0 && match.AwayGoals >= 0)
+                        {
+                            Match predMatch = ManualAlgorithms.FirstOrDefault(predictionManager.Matches, m => m.Id == match.Id);
+                            if (predMatch != null)
+                            {
+                                predMatch.HomeGoals = match.HomeGoals;
+                                predMatch.AwayGoals = match.AwayGoals;
+                                predMatch.IsPlayed = true;
+                                predictionManager.ProcessMatchResult(predMatch);
+                            }
+                        }
+                    }
+
+                    var predictedStandings = predictionManager.GetStandings();
+
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        PredictionStandings = new ObservableCollection<Team>(predictedStandings);
+                        HideLoading();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show($"Ошибка при расчете прогноза: {ex.Message}", "Ошибка",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        HideLoading();
+                    });
+                }
+            });
+        }
+
+        private void ResetPrediction()
+        {
+            RefreshPrediction();
+        }
+
+        private async Task ShowHistoryAsync()
+        {
+            if (SelectedHistoryTeam == null) return;
+
+            ShowLoading("Загружаем историю...");
+            await Task.Run(() =>
+            {
+                var history = _leagueManager.GetTeamHistory(SelectedHistoryTeam.Id);
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    TeamHistory = new ObservableCollection<TeamRoundStats>(history);
+                    HideLoading();
+                });
+            });
+        }
+
+        private async Task ShowPositionGraphAsync()
+        {
+            if (SelectedGraphTeams == null || SelectedGraphTeams.Count == 0)
+            {
+                MessageBox.Show("Выберите хотя бы одну команду", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (SelectedGraphTeams.Count > 5)
+            {
+                MessageBox.Show("Выберите не более 5 команд для удобства отображения", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            ShowLoading("Генерируем график позиций...");
+            await Task.Run(() =>
+            {
+                var histories = new Dictionary<string, List<TeamRoundStats>>();
+
+                for (int i = 0; i < SelectedGraphTeams.Count; i++)
+                {
+                    Team team = SelectedGraphTeams[i];
+                    var history = _leagueManager.GetTeamHistory(team.Id);
+                    if (history.Count > 0)
+                    {
+                        histories[team.Name] = history;
+                    }
+                }
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (histories.Count > 0)
+                    {
+                        ChartModel = ChartHelper.CreatePositionChart(histories);
+                        GraphInfoText = $"Отображается график изменения позиций для {histories.Count} команд(ы)";
+                    }
+                    else
+                    {
+                        MessageBox.Show("Нет данных для выбранных команд", "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
+                        GraphInfoText = "Нет данных для отображения";
+                    }
+                    HideLoading();
+                });
+            });
+        }
+
+        private async Task ShowPointsGraphAsync()
+        {
+            if (SelectedGraphTeams == null || SelectedGraphTeams.Count != 1)
+            {
+                MessageBox.Show("Для графика очков выберите ровно одну команду", "Предупреждение", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            Team team = SelectedGraphTeams[0];
+
+            ShowLoading("Генерируем график очков...");
+            await Task.Run(() =>
+            {
+                var history = _leagueManager.GetTeamHistory(team.Id);
+
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (history.Count > 0)
+                    {
+                        ChartModel = ChartHelper.CreatePointsChart(history, team.Name);
+                        GraphInfoText = $"Отображается график изменения очков для команды {team.Name}";
+                    }
+                    else
+                    {
+                        MessageBox.Show("Нет данных для этой команды", "Информация", MessageBoxButton.OK, MessageBoxImage.Information);
+                        GraphInfoText = "Нет данных для отображения";
+                    }
+                    HideLoading();
+                });
+            });
+        }
+
+        private void GenerateData()
+        {
+            var dialog = new GenerateDataDialog();
+            if (dialog.ShowDialog() == true)
+            {
+                ShowLoading("Генерируем данные...");
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        string dataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "data.json");
+                        ScheduleGenerator.GenerateAndSave(dataPath, dialog.TeamCount, dialog.SimulateRounds);
+
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            HideLoading();
+                            MessageBox.Show($"Данные успешно сгенерированы!\n\nКоманд: {dialog.TeamCount}\nТуров для симуляции: {dialog.SimulateRounds}\n\nПерезапустите приложение для загрузки новых данных.",
+                                "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            HideLoading();
+                            MessageBox.Show($"Ошибка генерации данных: {ex.Message}", "Ошибка",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+                        });
+                    }
+                });
+            }
+        }
+
+        private void ShowAbout()
+        {
+            MessageBox.Show("Футбольная Лига - Система управления турнирной таблицей\n\n" +
+                "Возможности:\n" +
+                "• Турнирная таблица с автоматическим расчетом очков\n" +
+                "• Поиск по множественным критериям\n" +
+                "• Личные встречи команд\n" +
+                "• Прогнозирование итоговых мест\n" +
+                "• Графики изменения позиций и очков\n" +
+                "• Генерация полного расписания (20 команд, 380 матчей)\n\n" +
+                "Версия: 2.0 (MVVM)\n" +
+                "Курсовая работа по C# (WPF)",
+                "О программе", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void ShowLoading(string message)
+        {
+            LoadingText = message;
+            IsLoading = true;
+        }
+
+        private void HideLoading()
+        {
+            IsLoading = false;
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\ViewModels\RelayCommand.cs
+================================================================================
+
+using System;
+using System.Windows.Input;
+
+namespace FootballLeague.ViewModels
+{
+    /// <summary>
+    /// Реализация ICommand для использования в MVVM
+    /// </summary>
+    public class RelayCommand : ICommand
+    {
+        private readonly Action<object> _execute;
+        private readonly Func<object, bool> _canExecute;
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public RelayCommand(Action<object> execute, Func<object, bool> canExecute = null)
+        {
+            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+            _canExecute = canExecute;
+        }
+
+        public bool CanExecute(object parameter)
+        {
+            return _canExecute == null || _canExecute(parameter);
+        }
+
+        public void Execute(object parameter)
+        {
+            _execute(parameter);
+        }
+    }
+
+    /// <summary>
+    /// Типизированная версия RelayCommand
+    /// </summary>
+    public class RelayCommand<T> : ICommand
+    {
+        private readonly Action<T> _execute;
+        private readonly Func<T, bool> _canExecute;
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public RelayCommand(Action<T> execute, Func<T, bool> canExecute = null)
+        {
+            _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+            _canExecute = canExecute;
+        }
+
+        public bool CanExecute(object parameter)
+        {
+            return _canExecute == null || _canExecute((T)parameter);
+        }
+
+        public void Execute(object parameter)
+        {
+            _execute((T)parameter);
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\ViewModels\ViewModelBase.cs
+================================================================================
+
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+
+namespace FootballLeague.ViewModels
+{
+    /// <summary>
+    /// Базовый класс для всех ViewModel с реализацией INotifyPropertyChanged
+    /// </summary>
+    public abstract class ViewModelBase : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
+        {
+            if (Equals(field, value)) return false;
+            field = value;
+            OnPropertyChanged(propertyName);
+            return true;
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\App.xaml
+================================================================================
+
+<Application x:Class="FootballLeague.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:FootballLeague"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <local:ScoreConverter x:Key="ScoreConverter"/>
+    </Application.Resources>
+</Application>
+
+
+
+================================================================================
+ФАЙЛ: project\Views\App.xaml.cs
+================================================================================
+
+using System.Windows;
+
+namespace FootballLeague
+{
+    public partial class App : Application
+    {
+        [System.STAThread]
+        public static void Main()
+        {
+            App app = new App();
+            app.InitializeComponent();
+            app.Run();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\ChartsView.xaml
+================================================================================
+
+<UserControl x:Class="FootballLeague.Views.Components.ChartsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:oxy="http://oxyplot.org/wpf">
+    <UserControl.Resources>
+        <ResourceDictionary Source="../Resources/SharedResources.xaml"/>
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Border Grid.Row="0" Style="{StaticResource InfoBannerStyle}">
+            <StackPanel>
+                <TextBlock Text="📈 Графики изменения показателей" 
+                           FontSize="16" 
+                           FontWeight="Bold" 
+                           Foreground="{StaticResource TextPrimary}"
+                           Margin="0,0,0,5"/>
+                <TextBlock Text="Отслеживайте динамику позиций и очков команд по турам. Выберите до 5 команд для графика позиций или 1 команду для графика очков" 
+                           TextWrapping="Wrap" 
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="12"/>
+            </StackPanel>
+        </Border>
+        
+        <TextBlock Grid.Row="1" Text="Выберите команды для анализа:" FontSize="14" FontWeight="SemiBold" 
+                   Foreground="{StaticResource TextPrimary}" Margin="10,10,0,10"/>
+        
+        <Border Grid.Row="2" Background="{StaticResource CardBackground}" 
+                BorderBrush="{StaticResource SecondaryColor}" BorderThickness="1" 
+                CornerRadius="5" Margin="10,0,10,10" Padding="15">
+            <StackPanel Orientation="Horizontal">
+                <ListBox ItemsSource="{Binding Teams}" DisplayMemberPath="Name" 
+                         Width="280" Height="120" SelectionMode="Multiple" Margin="0,0,20,0"
+                         x:Name="TeamGraphListBox" Background="White"/>
+                <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                    <Button Content="График позиций" Width="160" Margin="0,0,0,10" 
+                            Command="{Binding ShowPositionGraphCommand}"
+                            Style="{StaticResource ModernButtonStyle}"/>
+                    <Button Content="График очков" Width="160" Command="{Binding ShowPointsGraphCommand}"
+                            Style="{StaticResource ModernButtonStyle}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        
+        <TextBlock Grid.Row="3" Text="{Binding GraphInfoText}" 
+                   Margin="10,0,10,10" Foreground="{StaticResource TextSecondary}" 
+                   FontStyle="Italic" FontSize="12"/>
+        
+        <Border Grid.Row="4" Background="{StaticResource CardBackground}" 
+                BorderBrush="{StaticResource SecondaryColor}" BorderThickness="1" 
+                CornerRadius="5" Margin="10,0,10,10">
+            <oxy:PlotView Model="{Binding ChartModel}" Margin="5"/>
+        </Border>
+    </Grid>
+</UserControl>
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\ChartsView.xaml.cs
+================================================================================
+
+using System.Linq;
+using System.Windows.Controls;
+using FootballLeague.ViewModels;
+
+namespace FootballLeague.Views.Components
+{
+    public partial class ChartsView : UserControl
+    {
+        public ChartsView()
+        {
+            InitializeComponent();
+            TeamGraphListBox.SelectionChanged += TeamGraphListBox_SelectionChanged;
+        }
+
+        private void TeamGraphListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (DataContext is MainViewModel viewModel)
+            {
+                viewModel.SelectedGraphTeams.Clear();
+                foreach (Team team in TeamGraphListBox.SelectedItems)
+                {
+                    viewModel.SelectedGraphTeams.Add(team);
+                }
+            }
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\HeadToHeadView.xaml
+================================================================================
+
+<UserControl x:Class="FootballLeague.Views.Components.HeadToHeadView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary Source="../Resources/SharedResources.xaml"/>
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Border Grid.Row="0" Style="{StaticResource InfoBannerStyle}">
+            <StackPanel>
+                <TextBlock Text="⚔️ Личные встречи команд" 
+                           FontSize="16" 
+                           FontWeight="Bold" 
+                           Foreground="{StaticResource TextPrimary}"
+                           Margin="0,0,0,5"/>
+                <TextBlock Text="Выберите две команды для просмотра истории их матчей между собой" 
+                           TextWrapping="Wrap" 
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="12"/>
+            </StackPanel>
+        </Border>
+        
+        <TextBlock Grid.Row="1" Text="Выберите две команды:" FontSize="14" FontWeight="SemiBold" 
+                   Foreground="{StaticResource TextPrimary}" Margin="10,10,0,10"/>
+        
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10,0,0,10">
+            <TextBlock Text="Команда 1:" VerticalAlignment="Center" Margin="0,0,10,0" 
+                       Foreground="{StaticResource TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedTeam1}" 
+                      DisplayMemberPath="Name" Width="200" Margin="0,0,20,0"/>
+            <TextBlock Text="Команда 2:" VerticalAlignment="Center" Margin="0,0,10,0"
+                       Foreground="{StaticResource TextSecondary}"/>
+            <ComboBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedTeam2}" 
+                      DisplayMemberPath="Name" Width="200" Margin="0,0,20,0"/>
+            <Button Content="Поиск" Width="100" Command="{Binding SearchHeadToHeadCommand}" 
+                    Style="{StaticResource ModernButtonStyle}"/>
+        </StackPanel>
+        
+        <DataGrid Grid.Row="3" 
+                  ItemsSource="{Binding HeadToHeadMatches}" 
+                  AutoGenerateColumns="False" 
+                  IsReadOnly="True" 
+                  Margin="10,10,10,10" 
+                  CanUserAddRows="False" 
+                  CanUserDeleteRows="False"
+                  Style="{StaticResource ModernDataGridStyle}"
+                  ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}"
+                  CellStyle="{StaticResource DataGridCellStyle}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Тур" Binding="{Binding Round}" Width="80">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Дома" Binding="{Binding HomeTeam.Name}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Padding" Value="10,5"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Счет" Binding="{Binding ., Converter={StaticResource ScoreConverter}}" Width="120">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="14"/>
+                            <Setter Property="Foreground" Value="{StaticResource AccentColor}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="В гостях" Binding="{Binding AwayTeam.Name}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Padding" Value="10,5"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\HeadToHeadView.xaml.cs
+================================================================================
+
+using System.Windows.Controls;
+
+namespace FootballLeague.Views.Components
+{
+    public partial class HeadToHeadView : UserControl
+    {
+        public HeadToHeadView()
+        {
+            InitializeComponent();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\HistoryView.xaml
+================================================================================
+
+<UserControl x:Class="FootballLeague.Views.Components.HistoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary Source="../Resources/SharedResources.xaml"/>
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Border Grid.Row="0" Style="{StaticResource InfoBannerStyle}">
+            <StackPanel>
+                <TextBlock Text="📜 История изменения позиций" 
+                           FontSize="16" 
+                           FontWeight="Bold" 
+                           Foreground="{StaticResource TextPrimary}"
+                           Margin="0,0,0,5"/>
+                <TextBlock Text="Просмотрите, как менялась позиция и количество очков выбранной команды от тура к туру" 
+                           TextWrapping="Wrap" 
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="12"/>
+            </StackPanel>
+        </Border>
+        
+        <TextBlock Grid.Row="1" Text="Выберите команду для просмотра истории:" FontSize="14" FontWeight="SemiBold" 
+                   Foreground="{StaticResource TextPrimary}" Margin="10,10,0,10"/>
+        
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="10,0,0,10">
+            <ComboBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedHistoryTeam}" 
+                      DisplayMemberPath="Name" Width="250" Margin="0,0,20,0" Padding="5"/>
+            <Button Content="Показать" Width="120" Command="{Binding ShowHistoryCommand}"
+                    Style="{StaticResource ModernButtonStyle}"/>
+        </StackPanel>
+        
+        <DataGrid Grid.Row="3" 
+                  ItemsSource="{Binding TeamHistory}" 
+                  AutoGenerateColumns="False" 
+                  IsReadOnly="True" 
+                  Margin="10,0,10,10" 
+                  CanUserAddRows="False" 
+                  CanUserDeleteRows="False"
+                  Style="{StaticResource ModernDataGridStyle}"
+                  ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}"
+                  CellStyle="{StaticResource DataGridCellStyle}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="№ Тура" Binding="{Binding Round}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="14"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Место в таблице" Binding="{Binding Position}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontSize" Value="16"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Foreground" Value="{StaticResource AccentColor}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Очки" Binding="{Binding Points}" Width="*">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontSize" Value="16"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Foreground" Value="{StaticResource PrimaryColor}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\HistoryView.xaml.cs
+================================================================================
+
+using System.Windows.Controls;
+
+namespace FootballLeague.Views.Components
+{
+    public partial class HistoryView : UserControl
+    {
+        public HistoryView()
+        {
+            InitializeComponent();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\PredictionView.xaml
+================================================================================
+
+<UserControl x:Class="FootballLeague.Views.Components.PredictionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary Source="../Resources/SharedResources.xaml"/>
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Border Grid.Row="0" Style="{StaticResource InfoBannerStyle}">
+            <StackPanel>
+                <TextBlock Text="🔮 Прогноз итоговой таблицы" 
+                           FontSize="16" 
+                           FontWeight="Bold" 
+                           Foreground="{StaticResource TextPrimary}"
+                           Margin="0,0,0,5"/>
+                <TextBlock TextWrapping="Wrap" 
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="12" Margin="0,0,0,5">
+                    <Run Text="Введите предполагаемые результаты для оставшихся матчей и посмотрите, как изменится турнирная таблица."/>
+                    <LineBreak/>
+                    <Run Text="Это поможет понять, какие команды могут выйти в лидеры или попасть в зону вылета."/>
+                </TextBlock>
+                <TextBlock TextWrapping="Wrap" 
+                           Foreground="{StaticResource AccentColor}"
+                           FontSize="11" FontWeight="SemiBold">
+                    <Run Text="💡 Совет:"/>
+                    <Run Text="Измените счета в левой таблице, затем нажмите 'Рассчитать прогноз' для обновления итоговой таблицы справа"/>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+        
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            
+            <Border Grid.Column="0" Background="{StaticResource CardBackground}" 
+                    BorderBrush="{StaticResource SecondaryColor}" BorderThickness="1" 
+                    CornerRadius="5" Margin="10,5,5,10" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock Text="Оставшиеся матчи" FontSize="14" FontWeight="Bold" 
+                                   Foreground="{StaticResource TextPrimary}" Margin="0,0,0,3"/>
+                        <TextBlock Text="Введите счет для каждого матча (можно оставить 0:0 для ничьей)" 
+                                   FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                    </StackPanel>
+                    
+                    <DataGrid Grid.Row="1" 
+                              ItemsSource="{Binding RemainingMatches}" 
+                              AutoGenerateColumns="False" 
+                              Margin="0,0,0,10" 
+                              CanUserAddRows="False" 
+                              CanUserDeleteRows="False"
+                              Style="{StaticResource ModernDataGridStyle}"
+                              ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}"
+                              CellStyle="{StaticResource DataGridCellStyle}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Тур" Binding="{Binding Round}" Width="50" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Дома" Binding="{Binding HomeTeam.Name}" Width="110" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Padding" Value="5"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Голы" Binding="{Binding HomeGoals}" Width="50"/>
+                            <DataGridTextColumn Header="Голы" Binding="{Binding AwayGoals}" Width="50"/>
+                            <DataGridTextColumn Header="Гости" Binding="{Binding AwayTeam.Name}" Width="110" IsReadOnly="True">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Padding" Value="5"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="Рассчитать прогноз" Width="160" Margin="0,0,10,0" 
+                                Command="{Binding CalculatePredictionCommand}"
+                                Style="{StaticResource ModernButtonStyle}"/>
+                        <Button Content="Сбросить" Width="100" Command="{Binding ResetPredictionCommand}"
+                                Style="{StaticResource ModernButtonStyle}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            
+            <Border Grid.Column="1" Background="{StaticResource CardBackground}" 
+                    BorderBrush="{StaticResource SecondaryColor}" BorderThickness="1" 
+                    CornerRadius="5" Margin="5,5,10,10" Padding="10">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock Text="Прогнозируемая таблица" FontSize="14" FontWeight="Bold" 
+                                   Foreground="{StaticResource TextPrimary}" Margin="0,0,0,3"/>
+                        <TextBlock Text="Итоговая турнирная таблица после завершения всех матчей" 
+                                   FontSize="11" Foreground="{StaticResource TextSecondary}"/>
+                    </StackPanel>
+                    
+                    <DataGrid Grid.Row="1" 
+                              ItemsSource="{Binding PredictionStandings}" 
+                              AutoGenerateColumns="False" 
+                              IsReadOnly="True" 
+                              CanUserAddRows="False" 
+                              CanUserDeleteRows="False"
+                              Style="{StaticResource ModernDataGridStyle}"
+                              ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}"
+                              CellStyle="{StaticResource DataGridCellStyle}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Команда" Binding="{Binding Name}" Width="140">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="Padding" Value="5"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Игры" Binding="{Binding Played}" Width="50">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Побед" Binding="{Binding Wins}" Width="55">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="Foreground" Value="#2E7D32"/>
+                                        <Setter Property="ToolTip" Value="Количество побед"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Ничьих" Binding="{Binding Draws}" Width="60">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="Foreground" Value="#F57C00"/>
+                                        <Setter Property="ToolTip" Value="Количество ничьих"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Пораж." Binding="{Binding Losses}" Width="60">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="Foreground" Value="#C62828"/>
+                                        <Setter Property="ToolTip" Value="Количество поражений"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Заб." Binding="{Binding GoalsFor}" Width="50">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="ToolTip" Value="Забитые мячи"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Проп." Binding="{Binding GoalsAgainst}" Width="50">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="ToolTip" Value="Пропущенные мячи"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Разн." Binding="{Binding GoalDifference}" Width="50">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Очки" Binding="{Binding Points}" Width="60">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Center"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="FontSize" Value="14"/>
+                                        <Setter Property="Foreground" Value="{StaticResource PrimaryColor}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\PredictionView.xaml.cs
+================================================================================
+
+using System.Windows.Controls;
+
+namespace FootballLeague.Views.Components
+{
+    public partial class PredictionView : UserControl
+    {
+        public PredictionView()
+        {
+            InitializeComponent();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\StandingsView.xaml
+================================================================================
+
+<UserControl x:Class="FootballLeague.Views.Components.StandingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary Source="../Resources/SharedResources.xaml"/>
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Border Grid.Row="0" Style="{StaticResource InfoBannerStyle}">
+            <StackPanel>
+                <TextBlock Text="📊 Турнирная таблица" 
+                           FontSize="16" 
+                           FontWeight="Bold" 
+                           Foreground="{StaticResource TextPrimary}"
+                           Margin="0,0,0,5"/>
+                <TextBlock TextWrapping="Wrap" 
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="12">
+                    <Run Text="Здесь отображается текущее положение команд в турнире."/>
+                    <Run Text="Команды ранжируются по очкам, разнице забитых и пропущенных мячей."/>
+                    <LineBreak/>
+                    <Run Text="Победа = 3 очка • Ничья = 1 очко • Поражение = 0 очков" FontWeight="SemiBold"/>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+        
+        <DataGrid Grid.Row="1"
+                  ItemsSource="{Binding Standings}" 
+                  AutoGenerateColumns="False" 
+                  IsReadOnly="True" 
+                  Margin="10" 
+                  CanUserAddRows="False" 
+                  CanUserDeleteRows="False"
+                  Style="{StaticResource ModernDataGridStyle}"
+                  ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}"
+                  CellStyle="{StaticResource DataGridCellStyle}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Команда" Binding="{Binding Name}" Width="200" FontWeight="Bold">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="Padding" Value="5"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Игры" Binding="{Binding Played}" Width="60">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Выигрыши" Binding="{Binding Wins}" Width="80">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="Foreground" Value="#2E7D32"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Ничьи" Binding="{Binding Draws}" Width="70">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="Foreground" Value="#F57C00"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Поражения" Binding="{Binding Losses}" Width="90">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="Foreground" Value="#C62828"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Забито" Binding="{Binding GoalsFor}" Width="70">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Пропущено" Binding="{Binding GoalsAgainst}" Width="90">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Разница" Binding="{Binding GoalDifference}" Width="80">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Очки" Binding="{Binding Points}" Width="80" FontWeight="Bold">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="14"/>
+                            <Setter Property="Foreground" Value="{StaticResource PrimaryColor}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\StandingsView.xaml.cs
+================================================================================
+
+using System.Windows.Controls;
+
+namespace FootballLeague.Views.Components
+{
+    public partial class StandingsView : UserControl
+    {
+        public StandingsView()
+        {
+            InitializeComponent();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\TeamSearchView.xaml
+================================================================================
+
+<UserControl x:Class="FootballLeague.Views.Components.TeamSearchView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary Source="../Resources/SharedResources.xaml"/>
+    </UserControl.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        
+        <Border Grid.Row="0" Style="{StaticResource InfoBannerStyle}">
+            <StackPanel>
+                <TextBlock Text="🔍 Поиск команд по критериям" 
+                           FontSize="16" 
+                           FontWeight="Bold" 
+                           Foreground="{StaticResource TextPrimary}"
+                           Margin="0,0,0,5"/>
+                <TextBlock Text="Используйте фильтры для поиска команд по различным статистическим показателям" 
+                           TextWrapping="Wrap" 
+                           Foreground="{StaticResource TextSecondary}"
+                           FontSize="12"/>
+            </StackPanel>
+        </Border>
+        
+        <TextBlock Grid.Row="1" Text="Критерии поиска:" FontSize="14" FontWeight="SemiBold" 
+                   Foreground="{StaticResource TextPrimary}" Margin="10,10,0,10"/>
+        
+        <Border Grid.Row="2" Background="{StaticResource CardBackground}" 
+                BorderBrush="{StaticResource SecondaryColor}" BorderThickness="1" 
+                CornerRadius="5" Margin="10,0,10,10" Padding="15">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="Мин. забитых:" VerticalAlignment="Center" Width="120" Margin="0,0,5,0"
+                               Foreground="{StaticResource TextSecondary}"/>
+                    <TextBox Text="{Binding MinGoalsText, UpdateSourceTrigger=PropertyChanged}" 
+                             Width="60" Margin="0,0,15,0" Padding="5"/>
+                    <TextBlock Text="Макс. забитых:" VerticalAlignment="Center" Width="120" Margin="0,0,5,0"
+                               Foreground="{StaticResource TextSecondary}"/>
+                    <TextBox Text="{Binding MaxGoalsText, UpdateSourceTrigger=PropertyChanged}" 
+                             Width="60" Margin="0,0,15,0" Padding="5"/>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="Мин. очков:" VerticalAlignment="Center" Width="120" Margin="0,0,5,0"
+                               Foreground="{StaticResource TextSecondary}"/>
+                    <TextBox Text="{Binding MinPointsText, UpdateSourceTrigger=PropertyChanged}" 
+                             Width="60" Margin="0,0,15,0" Padding="5"/>
+                    <TextBlock Text="Мин. побед:" VerticalAlignment="Center" Width="120" Margin="0,0,5,0"
+                               Foreground="{StaticResource TextSecondary}"/>
+                    <TextBox Text="{Binding MinWinsText, UpdateSourceTrigger=PropertyChanged}" 
+                             Width="60" Margin="0,0,15,0" Padding="5"/>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                    <TextBlock Text="Мин. разница голов:" VerticalAlignment="Center" Width="120" Margin="0,0,5,0"
+                               Foreground="{StaticResource TextSecondary}"/>
+                    <TextBox Text="{Binding MinGoalDiffText, UpdateSourceTrigger=PropertyChanged}" 
+                             Width="60" Margin="0,0,15,0" Padding="5"/>
+                    <TextBlock Text="Название содержит:" VerticalAlignment="Center" Width="120" Margin="0,0,5,0"
+                               Foreground="{StaticResource TextSecondary}"/>
+                    <TextBox Text="{Binding NameContainsText, UpdateSourceTrigger=PropertyChanged}" 
+                             Width="150" Margin="0,0,15,0" Padding="5"/>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Content="Поиск" Width="120" Margin="0,0,10,0" 
+                            Command="{Binding SearchTeamsCommand}"
+                            Style="{StaticResource ModernButtonStyle}"/>
+                    <Button Content="Очистить" Width="120" Command="{Binding ClearSearchCommand}"
+                            Style="{StaticResource ModernButtonStyle}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        
+        <DataGrid Grid.Row="3" 
+                  ItemsSource="{Binding SearchResults}" 
+                  AutoGenerateColumns="False" 
+                  IsReadOnly="True" 
+                  Margin="10,0,10,10" 
+                  CanUserAddRows="False" 
+                  CanUserDeleteRows="False"
+                  Style="{StaticResource ModernDataGridStyle}"
+                  ColumnHeaderStyle="{StaticResource DataGridHeaderStyle}"
+                  CellStyle="{StaticResource DataGridCellStyle}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Команда" Binding="{Binding Name}" Width="180">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                            <Setter Property="Padding" Value="5"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Игры" Binding="{Binding Played}" Width="60">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Выигрыши" Binding="{Binding Wins}" Width="80">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="Foreground" Value="#2E7D32"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Ничьи" Binding="{Binding Draws}" Width="70">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="Foreground" Value="#F57C00"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Поражения" Binding="{Binding Losses}" Width="90">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="Foreground" Value="#C62828"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Забито" Binding="{Binding GoalsFor}" Width="70">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Пропущено" Binding="{Binding GoalsAgainst}" Width="90">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Разница" Binding="{Binding GoalDifference}" Width="80">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Очки" Binding="{Binding Points}" Width="80">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="14"/>
+                            <Setter Property="Foreground" Value="{StaticResource PrimaryColor}"/>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Components\TeamSearchView.xaml.cs
+================================================================================
+
+using System.Windows.Controls;
+
+namespace FootballLeague.Views.Components
+{
+    public partial class TeamSearchView : UserControl
+    {
+        public TeamSearchView()
+        {
+            InitializeComponent();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\GenerateDataDialog.xaml
+================================================================================
+
+<Window x:Class="FootballLeague.GenerateDataDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Генерация данных" Height="300" Width="450"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <TextBlock Grid.Row="0" Text="Настройки генерации данных" FontSize="16" FontWeight="Bold" Margin="0,0,0,20"/>
+        
+        <StackPanel Grid.Row="1" Margin="0,0,0,15">
+            <TextBlock Text="Количество команд:" Margin="0,0,0,5"/>
+            <ComboBox x:Name="TeamCountComboBox" SelectedIndex="0">
+                <ComboBoxItem Content="4 команды (минимум)" Tag="4"/>
+                <ComboBoxItem Content="10 команд" Tag="10"/>
+                <ComboBoxItem Content="20 команд (стандарт)" Tag="20"/>
+            </ComboBox>
+        </StackPanel>
+        
+        <StackPanel Grid.Row="2" Margin="0,0,0,15">
+            <TextBlock Text="Симулировать туры:" Margin="0,0,0,5"/>
+            <ComboBox x:Name="SimulateRoundsComboBox" SelectedIndex="0">
+                <ComboBoxItem Content="Не симулировать (пустое расписание)" Tag="0"/>
+                <ComboBoxItem Content="5 туров" Tag="5"/>
+                <ComboBoxItem Content="10 туров" Tag="10"/>
+                <ComboBoxItem Content="19 туров (первый круг)" Tag="19"/>
+                <ComboBoxItem Content="30 туров" Tag="30"/>
+                <ComboBoxItem Content="38 туров (полный сезон)" Tag="38"/>
+            </ComboBox>
+        </StackPanel>
+        
+        <TextBlock Grid.Row="3" TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,0,0,10">
+            Примечание: Для 20 команд будет создано 380 матчей (каждая команда играет с каждой дома и в гостях). 
+            Симуляция заполнит результаты случайными счетами.
+        </TextBlock>
+        
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="OkButton" Content="Генерировать" Width="120" Height="30" Margin="0,0,10,0" 
+                    Click="OkButton_Click" IsDefault="True"/>
+            <Button x:Name="CancelButton" Content="Отмена" Width="100" Height="30" 
+                    Click="CancelButton_Click" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
+
+
+
+================================================================================
+ФАЙЛ: project\Views\GenerateDataDialog.xaml.cs
+================================================================================
+
+using System.Windows;
+using System.Windows.Controls;
+
+namespace FootballLeague
+{
+    public partial class GenerateDataDialog : Window
+    {
+        public int TeamCount { get; private set; }
+        public int SimulateRounds { get; private set; }
+
+        public GenerateDataDialog()
+        {
+            InitializeComponent();
+        }
+
+        private void OkButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (TeamCountComboBox.SelectedItem is ComboBoxItem teamItem &&
+                SimulateRoundsComboBox.SelectedItem is ComboBoxItem roundItem)
+            {
+                TeamCount = int.Parse(teamItem.Tag.ToString());
+                SimulateRounds = int.Parse(roundItem.Tag.ToString());
+                
+                DialogResult = true;
+                Close();
+            }
+        }
+
+        private void CancelButton_Click(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
+            Close();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\MainWindow.xaml
+================================================================================
+
+<Window x:Class="FootballLeague.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:FootballLeague.ViewModels"
+        xmlns:views="clr-namespace:FootballLeague.Views.Components"
+        Title="Футбольная Лига - Турнирная таблица" Height="700" Width="1100"
+        WindowStartupLocation="CenterScreen">
+    
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+    
+    <Window.Resources>
+        <ResourceDictionary Source="Resources/SharedResources.xaml"/>
+    </Window.Resources>
+    
+    <Grid Background="{StaticResource BackgroundColor}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <!-- Меню -->
+        <Menu Grid.Row="0" Background="{StaticResource PrimaryColor}" Foreground="White">
+            <Menu.Resources>
+                <Style TargetType="MenuItem">
+                    <Setter Property="Foreground" Value="White"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter Property="Background" Value="{StaticResource SecondaryColor}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Menu.Resources>
+            <MenuItem Header="Файл">
+                <MenuItem Header="Генерировать данные..." Command="{Binding GenerateDataCommand}"/>
+                <Separator/>
+                <MenuItem Header="Выход" Command="{Binding ExitCommand}"/>
+            </MenuItem>
+            <MenuItem Header="Справка">
+                <MenuItem Header="О программе" Command="{Binding AboutCommand}"/>
+            </MenuItem>
+        </Menu>
+        
+        <!-- Контейнер вкладок -->
+        <TabControl Grid.Row="1" Background="{StaticResource BackgroundColor}">
+            <TabControl.Resources>
+                <Style TargetType="TabItem">
+                    <Setter Property="FontSize" Value="13"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource PrimaryColor}"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </TabControl.Resources>
+            
+            <TabItem Header="Турнирная таблица" Padding="10">
+                <views:StandingsView DataContext="{Binding}"/>
+            </TabItem>
+            
+            <TabItem Header="Личные встречи" Padding="10">
+                <views:HeadToHeadView DataContext="{Binding}"/>
+            </TabItem>
+            
+            <TabItem Header="Поиск команд" Padding="10">
+                <views:TeamSearchView DataContext="{Binding}"/>
+            </TabItem>
+            
+            <TabItem Header="Прогноз" Padding="10">
+                <views:PredictionView DataContext="{Binding}"/>
+            </TabItem>
+            
+            <TabItem Header="Графики" Padding="10">
+                <views:ChartsView DataContext="{Binding}"/>
+            </TabItem>
+            
+            <TabItem Header="История по турам" Padding="10">
+                <views:HistoryView DataContext="{Binding}"/>
+            </TabItem>
+        </TabControl>
+        
+        <!-- Индикатор загрузки -->
+        <Grid Grid.Row="2" Background="{StaticResource PrimaryColor}" Height="40">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsLoading}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <ProgressBar Width="200" Height="20" IsIndeterminate="True" Margin="0,0,10,0"
+                             Foreground="{StaticResource AccentColor}"/>
+                <TextBlock Text="{Binding LoadingText}" VerticalAlignment="Center" 
+                           FontSize="12" Foreground="White" FontWeight="SemiBold"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
+
+
+
+================================================================================
+ФАЙЛ: project\Views\MainWindow.xaml.cs
+================================================================================
+
+using System.Windows;
+
+namespace FootballLeague
+{
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+    }
+}
+
+
+
+================================================================================
+ФАЙЛ: project\Views\Resources\SharedResources.xaml
+================================================================================
+
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <!-- Цветовая палитра -->
+    <SolidColorBrush x:Key="PrimaryColor" Color="#2E7D32"/>
+    <SolidColorBrush x:Key="SecondaryColor" Color="#66BB6A"/>
+    <SolidColorBrush x:Key="AccentColor" Color="#FFA726"/>
+    <SolidColorBrush x:Key="BackgroundColor" Color="#F1F8F4"/>
+    <SolidColorBrush x:Key="CardBackground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="HeaderBackground" Color="#E8F5E9"/>
+    <SolidColorBrush x:Key="TextPrimary" Color="#1B5E20"/>
+    <SolidColorBrush x:Key="TextSecondary" Color="#558B2F"/>
+    
+    <!-- Стиль для информационных плашек -->
+    <Style x:Key="InfoBannerStyle" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource HeaderBackground}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource SecondaryColor}"/>
+        <Setter Property="BorderThickness" Value="0,0,0,3"/>
+        <Setter Property="Padding" Value="15,10"/>
+        <Setter Property="Margin" Value="10,10,10,5"/>
+    </Style>
+    
+    <!-- Стиль для кнопок -->
+    <Style x:Key="ModernButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource PrimaryColor}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="15,8"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource SecondaryColor}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="#BDBDBD"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    
+    <!-- Стиль для DataGrid -->
+    <Style x:Key="ModernDataGridStyle" TargetType="DataGrid">
+        <Setter Property="Background" Value="{StaticResource CardBackground}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource SecondaryColor}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="RowBackground" Value="White"/>
+        <Setter Property="AlternatingRowBackground" Value="#F9FFF9"/>
+        <Setter Property="GridLinesVisibility" Value="Horizontal"/>
+        <Setter Property="HorizontalGridLinesBrush" Value="#E0E0E0"/>
+        <Setter Property="HeadersVisibility" Value="Column"/>
+        <Setter Property="CanUserResizeRows" Value="False"/>
+        <Setter Property="SelectionMode" Value="Single"/>
+        <Setter Property="SelectionUnit" Value="FullRow"/>
+    </Style>
+    
+    <!-- Стиль для заголовков DataGrid -->
+    <Style x:Key="DataGridHeaderStyle" TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="{StaticResource PrimaryColor}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Padding" Value="10,10"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
+    
+    <!-- Стиль для ячеек DataGrid -->
+    <Style x:Key="DataGridCellStyle" TargetType="DataGridCell">
+        <Setter Property="Padding" Value="8,5"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{StaticResource HeaderBackground}"/>
+                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>
+
+
